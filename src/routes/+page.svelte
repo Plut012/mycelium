@@ -59,7 +59,7 @@
   let zoom = $state(1);     // 1 = 100%, range 0.3 to 2
   let panX = $state(0);     // px offset
   let panY = $state(0);     // px offset
-  let rackLocked = $state(false); // when true, disable zoom/pan (hex keyboard lock)
+  let rackLocked = $state(false); // reserved for future use
 
   let rackViewport: HTMLElement | undefined = $state();
   let rackTransformEl: HTMLElement | undefined = $state();
