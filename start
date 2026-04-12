@@ -1,0 +1,47 @@
+#!/bin/bash
+cd "$(dirname "$0")"
+
+# Colors
+G='\033[0;32m'
+D='\033[2;37m'
+W='\033[1;37m'
+C='\033[0;36m'
+R='\033[0m'
+
+clear
+
+echo ""
+echo -e "${G}  ┌─────────────────────────────────────────┐${R}"
+echo -e "${G}  │                                         │${R}"
+echo -e "${G}  │   ╔╦╗╦ ╦╔═╗╔═╗╦  ╦╦ ╦╔╦╗              │${R}"
+echo -e "${G}  │   ║║║╚╦╝║  ║╣ ║  ║║ ║║║║              │${R}"
+echo -e "${G}  │   ╩ ╩ ╩ ╚═╝╚═╝╩═╝╩╚═╝╩ ╩              │${R}"
+echo -e "${G}  │                         ${D}modular synth${G}   │${R}"
+echo -e "${G}  │                                         │${R}"
+echo -e "${G}  └─────────────────────────────────────────┘${R}"
+echo ""
+
+# Detect IP for mobile access
+IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+if [ -z "$IP" ]; then
+  IP=$(ifconfig 2>/dev/null | grep 'inet ' | grep -v '127.0.0.1' | head -1 | awk '{print $2}')
+fi
+
+PORT=8001
+
+echo -e "  ${D}installing dependencies...${R}"
+npm install --silent 2>/dev/null
+echo ""
+
+echo -e "  ${D}starting server...${R}"
+echo ""
+echo -e "  ${W}local${R}    ${C}http://localhost:${PORT}/${R}"
+if [ -n "$IP" ]; then
+  echo -e "  ${W}network${R}  ${C}http://${IP}:${PORT}/${R}"
+fi
+echo ""
+echo -e "  ${D}open the network url on your phone${R}"
+echo -e "  ${D}ctrl+c to stop${R}"
+echo ""
+
+npx vite dev --port $PORT --host 2>&1 | grep -v "^$"
