@@ -59,6 +59,7 @@
   let zoom = $state(1);     // 1 = 100%, range 0.3 to 2
   let panX = $state(0);     // px offset
   let panY = $state(0);     // px offset
+  let rackLocked = $state(false); // when true, disable zoom/pan (hex keyboard lock)
 
   let rackViewport: HTMLElement | undefined = $state();
   let rackTransformEl: HTMLElement | undefined = $state();
@@ -99,6 +100,7 @@
   }
 
   function onViewportTouchStart(e: TouchEvent) {
+    if (rackLocked) return;
     const target = e.target as HTMLElement;
     const onModule = !!target.closest('.module-wrapper');
 
@@ -134,6 +136,7 @@
   }
 
   function onViewportTouchMove(e: TouchEvent) {
+    if (rackLocked) return;
     e.preventDefault();
     if (e.touches.length === 2 && activePinch) {
       const t1 = e.touches[0];
@@ -170,6 +173,7 @@
   }
 
   function onViewportWheel(e: WheelEvent) {
+    if (rackLocked) return;
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
     const newZoom = clampZoom(zoom * factor);
@@ -587,9 +591,9 @@
       description: 'Hex Keys → Sampler (warm pad) → Reverb → Output — touch isomorphic keyboard',
       modules: [
         { type: 'hex-keyboard', position: { x: 0, y: 0 }, params: { octave: 3 } },
-        { type: 'sampler', position: { x: 8, y: 0 }, params: { tone: 'warm-pad', attack: 0.02, release: 1.0, brightness: 0.35, volume: 0.7 } },
-        { type: 'reverb', position: { x: 12, y: 0 }, params: { size: 'large', decay: 2.5, mix: 0.3, damping: 0.4 } },
-        { type: 'output', position: { x: 15, y: 0 }, params: { volume: 0.4 } },
+        { type: 'sampler', position: { x: 0, y: 5 }, params: { tone: 'warm-pad', attack: 0.02, release: 1.0, brightness: 0.35, volume: 0.7 } },
+        { type: 'reverb', position: { x: 4, y: 5 }, params: { size: 'large', decay: 2.5, mix: 0.3, damping: 0.4 } },
+        { type: 'output', position: { x: 7, y: 5 }, params: { volume: 0.4 } },
       ],
       connections: [
         { from: { type: 'hex-keyboard', port: 'note_data' }, to: { type: 'sampler', port: 'note_data' } },
@@ -688,13 +692,19 @@
       rackViewport.addEventListener('wheel', onViewportWheel, { passive: false });
       rackViewport.addEventListener('touchmove', onViewportTouchMove, { passive: false });
     }
-    // rackViewport may not be bound yet on first tick
     Promise.resolve().then(attachNonPassive);
+
+    // Listen for lock events from hex keyboard module
+    function onLockEvent(e: Event) {
+      rackLocked = (e as CustomEvent).detail.locked;
+    }
+    window.addEventListener('mycelium-lock', onLockEvent);
 
     return () => {
       if (!rackViewport) return;
       rackViewport.removeEventListener('wheel', onViewportWheel);
       rackViewport.removeEventListener('touchmove', onViewportTouchMove);
+      window.removeEventListener('mycelium-lock', onLockEvent);
     };
   });
 

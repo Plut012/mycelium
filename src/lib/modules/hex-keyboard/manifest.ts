@@ -5,8 +5,8 @@ export const hexKeyboardManifest: ModuleManifest = {
   name: 'Hex Keys',
   category: 'source',
   description: 'Isomorphic hexagonal keyboard — Harmonic Table layout. Every chord is the same shape.',
-  gridWidth: 8,
-  gridHeight: 8,
+  gridWidth: 12,
+  gridHeight: 5,
   inputs: [],
   outputs: [
     { id: 'cv_out',    name: 'CV',    type: 'control', direction: 'output' },

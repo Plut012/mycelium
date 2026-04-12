@@ -2,8 +2,6 @@
   import { Knob, ModulePanel, PortJack } from '$lib/ui';
   import type { HexKeyboardEngine } from './engine.js';
 
-  // ── Props ─────────────────────────────────────────────────────────────────
-
   type Props = {
     engine: HexKeyboardEngine;
     connectedPorts?: Set<string>;
@@ -13,10 +11,9 @@
 
   let { engine, connectedPorts = new Set(), onPortConnect, moduleId }: Props = $props();
 
-  // ── Parameters ────────────────────────────────────────────────────────────
-
-  let octave    = $state(3);
-  let velocity  = $state(0.8);
+  let octave = $state(3);
+  let velocity = $state(0.8);
+  let locked = $state(false);
 
   function setOctave(v: number) {
     octave = Math.round(v);
@@ -32,226 +29,85 @@
     onPortConnect?.(portId);
   }
 
-  // ── Hex grid geometry ─────────────────────────────────────────────────────
+  // ── Lock: dispatch to parent page ─────────────────────────────────────────
 
-  /**
-   * Pointy-top hexagons with axial coordinates (q, r).
-   *
-   * Pixel positions:
-   *   x = size * (sqrt3 * q + sqrt3/2 * r)
-   *   y = size * (3/2 * r)
-   *
-   * MIDI mapping (Harmonic Table):
-   *   midi = baseMidi + q*4 + r*3
-   *   where baseMidi = (octave + 1) * 12
-   *
-   * Interval axes:
-   *   +q  → +4 semitones (major third, right)
-   *   +r  → +3 semitones (minor third, down-right)
-   *   +q-r → +7 semitones (perfect fifth, upper-right diagonal, since 4 - (-3) = 7 ... actually q+1, r-1 = +4+(-3) = +1 ... )
-   *
-   * Wait — let's be careful. In Harmonic Table:
-   *   Moving right (+q)        = +4 semitones (major third)
-   *   Moving down-right (+r)   = +3 semitones (minor third)
-   *   Moving up-right (+q, -r) = +4 - 3 = +1 ... no.
-   *   Moving up (−r)           = −3 semitones
-   *   Actually moving diagonally up-left: −q+r changes = −4+3 = −1 ...
-   *
-   * The design doc says:
-   *   col → +4 semitones (major third)
-   *   row → +3 semitones (minor third)
-   *   diagonal up-left → +7 (fifth) — which is (+3 row) + (+4 col offset) from offset grids
-   *
-   * In pure axial: q=col, r=row. The sixth neighbor directions for pointy-top are:
-   *   (+1, 0), (-1, 0), (0, +1), (0, -1), (+1, -1), (-1, +1)
-   * Semitone changes:
-   *   (+1, 0):  +4    major third
-   *   (0, +1):  +3    minor third
-   *   (+1,-1):  +4−3 = +1   semitone (not useful)
-   *   (-1, 0):  −4    major third down
-   *   (0, -1):  −3    minor third up
-   *   (-1,+1):  −4+3 = −1   semitone
-   *
-   * Perfect fifth (+7) = major third + minor third = move (+1,0) then (0,+1) = (+1,+1).
-   * But (+1,+1) isn't a direct neighbor in axial hex — it's two steps.
-   * The two direct neighbors that sum to +7: (+1,0)+(0,+1) = diagonal across two.
-   *
-   * This is the Tonnetz / Harmonic Table. The fifth relationship is the
-   * "far diagonal" neighbor (+1,+1) which IS the upper-left neighbor in offset grid
-   * rendering. Let me just verify with a real note:
-   *   C=60, +4=E, +3=Eb — correct for a horizontal/diagonal reading.
-   *   C major: C(0,0), E(1,0), G — G is C+7. So G is at (q,r) where 4q+3r=7.
-   *   One solution: q=1, r=1 → 4+3=7. Yes! So G is the (1,1) neighbor.
-   *   In pointy-top axial, that IS a neighbor direction: (+1,+1) — wait, that's
-   *   NOT in the 6 neighbor list above. The 6 neighbors are:
-   *   (+1,0),(−1,0),(0,+1),(0,−1),(+1,−1),(−1,+1)
-   *
-   * Hmm. So (+1,+1) is NOT a direct hex neighbor in standard axial.
-   *
-   * Let me reconsider. The Harmonic Table uses a DIFFERENT coordinate system than
-   * standard axial hexagons. The (col*4 + row*3) formula maps to a specific
-   * visual arrangement where adjacent hexes share the fifth relationship via a
-   * particular offset pattern.
-   *
-   * Solution: use the formula as-is for MIDI assignment, and use standard axial
-   * pixel positions for rendering. The isomorphic property holds regardless of
-   * how we assign q/r — all C notes form a regular pattern, all major chords
-   * are the same physical shape.
-   *
-   * The key insight: any two hex positions (dq, dr) apart have the same interval
-   * (4*dq + 3*dr) semitones. This IS isomorphic — same chord = same shape.
-   * The fifth (7 semitones) just isn't reached by a single-step neighbor.
-   * But a TRIANGLE of three hexes that spells C major (C=0, E=4, G=7) has:
-   *   C at (0,0), E at (1,0), G at ?
-   *   G needs q*4+r*3=7. Options: (1,1)→7 (not neighbor), (4,−3)→7 (far away)...
-   *
-   * WAIT. I need to re-read the design doc more carefully.
-   * The doc says moving diagonally up-left = +7. In the offset coordinate picture:
-   *
-   *     ╱ ╲
-   *  +5th ╱   ╲ +maj3rd
-   *
-   * This is a FLAT-TOP hex diagram. The vertical axis shows fifths, the diagonals
-   * show thirds. For flat-top hexes with offset rows:
-   *   up         = +7 semitones (fifth)
-   *   upper-right = +4 (major third)
-   *   lower-right = +3 (minor third)
-   *
-   * Let's switch to: midi = baseMidi + (q * 7) + (r * 4) with flat-top pointy-top...
-   * No, let's just use the doc formula midi = baseMidi + col*4 + row*3 as written
-   * and use OFFSET grid coordinates (not axial) for layout, since offset coords
-   * naturally create the correct neighbor adjacency.
-   *
-   * For pointy-top with odd-r offset:
-   *   cx = col * hexWidth + (row % 2 === 1 ? hexWidth/2 : 0)
-   *   cy = row * (size * 1.5)
-   * where hexWidth = sqrt(3) * size.
-   *
-   * Neighbor adjacency in odd-r offset:
-   * For even rows: (−1,0),(+1,0),(0,−1),(0,+1),(−1,−1),(−1,+1)  (left-shifted upper/lower)
-   * For odd  rows: (−1,0),(+1,0),(0,−1),(0,+1),(+1,−1),(+1,+1)  (right-shifted upper/lower)
-   *
-   * In this offset system, neighbor semitone changes:
-   *   right (+1,0):    col+1 → +4 semitones
-   *   upper-right (depends on parity): → let's check both parities
-   *
-   * For even-row hex at (col, row), upper-right neighbor is (col, row−1):
-   *   Δmidi = 0*4 + (−1)*3 = −3  (oops, that's a minor third DOWN, not +5th)
-   *
-   * This is getting complicated. Let me just use axial coordinates where the
-   * neighbor relationships are well-defined and accept that fifths = two steps,
-   * and major chords form triangles across (+1,0), (0,+1), (+1,+1) — which is
-   * just two moves. The visual chord shapes will still be consistent everywhere.
-   * That's the isomorphic property. Let me verify a C major chord shape:
-   *   C: (0,0)  → midi 0 from root
-   *   E: (1,0)  → +4 (major third) ✓
-   *   G: (1,1)  → +4+3 = +7 (perfect fifth) ✓
-   * C, E, G form an L-shape / right-angle triangle. Same shape for all major chords.
-   * Minor chord: C, Eb, G
-   *   C: (0,0)
-   *   Eb: (0,1) → +3 (minor third) ✓
-   *   G:  (1,1) → +7 ✓
-   * Same triangle rotated. These are compact shapes — great for touch exploration.
-   */
+  function toggleLock() {
+    locked = !locked;
+    // Dispatch a custom event the page can listen for
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('mycelium-lock', { detail: { locked } }));
+    }
+  }
 
-  const HEX_SIZE = 26;  // hex circumradius in px
+  // ── Hex grid — landscape layout ───────────────────────────────────────────
+
+  const HEX_SIZE = 24;
   const sqrt3 = Math.sqrt(3);
   const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 
-  // Grid range in axial coordinates
-  const Q_MIN = -3, Q_MAX = 3;
-  const R_MIN = -3, R_MAX = 3;
+  // Wide grid: many columns, few rows — landscape phone optimized
+  const Q_MIN = -5, Q_MAX = 5;   // 11 columns
+  const R_MIN = -2, R_MAX = 2;   // 5 rows
 
   interface HexCell {
     q: number;
     r: number;
-    cx: number;   // pixel center x
-    cy: number;   // pixel center y
+    cx: number;
+    cy: number;
     midi: number;
-    noteName: string;   // e.g. "C"
-    noteOctave: number; // e.g. 4
-    pitchClass: number; // 0–11
-    points: string;     // SVG polygon points attribute
+    noteName: string;
+    noteOctave: number;
+    pitchClass: number;
+    points: string;
   }
 
-  // Pitch-class colours — muted earthy tones matching Ancient Forest theme
   const PITCH_COLORS: string[] = [
-    '#8b3a2a',  //  0 C  — warm red / terracotta
-    '#7a3d1e',  //  1 C# — deep burnt orange
-    '#7a6020',  //  2 D  — gold / ochre
-    '#5a6628',  //  3 D# — olive green
-    '#2e6b35',  //  4 E  — forest green
-    '#1e6658',  //  5 F  — teal
-    '#1a5c72',  //  6 F# — deep cyan
-    '#1e3d7a',  //  7 G  — blue
-    '#2e2680',  //  8 G# — indigo
-    '#5a2680',  //  9 A  — purple
-    '#7a2060',  // 10 A# — magenta / plum
-    '#7a2040',  // 11 B  — rose
+    '#8b3a2a', '#7a3d1e', '#7a6020', '#5a6628', '#2e6b35', '#1e6658',
+    '#1a5c72', '#1e3d7a', '#2e2680', '#5a2680', '#7a2060', '#7a2040',
   ];
 
-  // Active (lit) versions — significantly brighter
   const PITCH_COLORS_ACTIVE: string[] = [
-    '#e0604a',  //  0 C
-    '#d46030',  //  1 C#
-    '#d4aa38',  //  2 D
-    '#9aac44',  //  3 D#
-    '#4eb85a',  //  4 E
-    '#36b89c',  //  5 F
-    '#30a0c8',  //  6 F#
-    '#3470e0',  //  7 G
-    '#5048e0',  //  8 G#
-    '#9848e0',  //  9 A
-    '#d03aaa',  // 10 A#
-    '#d03468',  // 11 B
+    '#e0604a', '#d46030', '#d4aa38', '#9aac44', '#4eb85a', '#36b89c',
+    '#30a0c8', '#3470e0', '#5048e0', '#9848e0', '#d03aaa', '#d03468',
   ];
 
-  /** Compute the 6 vertices of a pointy-top hexagon centred at (cx, cy). */
   function hexPoints(cx: number, cy: number, size: number): string {
     const pts: string[] = [];
     for (let i = 0; i < 6; i++) {
-      const angleDeg = 60 * i + 30; // pointy-top: first vertex at 30°
+      const angleDeg = 60 * i + 30; // pointy-top
       const angleRad = (Math.PI / 180) * angleDeg;
-      const x = cx + size * Math.cos(angleRad);
-      const y = cy + size * Math.sin(angleRad);
-      pts.push(`${x.toFixed(2)},${y.toFixed(2)}`);
+      pts.push(`${(cx + size * Math.cos(angleRad)).toFixed(2)},${(cy + size * Math.sin(angleRad)).toFixed(2)}`);
     }
     return pts.join(' ');
   }
 
-  /** Build the full hex grid once. */
-  function buildHexes(octave: number): HexCell[] {
-    const baseMidi = (octave + 1) * 12;
+  function buildHexes(oct: number): HexCell[] {
+    const baseMidi = (oct + 1) * 12;
     const cells: HexCell[] = [];
 
     for (let r = R_MIN; r <= R_MAX; r++) {
       for (let q = Q_MIN; q <= Q_MAX; q++) {
-        // Axial → pixel (pointy-top)
         const cx = HEX_SIZE * (sqrt3 * q + sqrt3 / 2 * r);
         const cy = HEX_SIZE * (3 / 2 * r);
-
         const midi = baseMidi + q * 4 + r * 3;
-        // Clamp to valid MIDI range
         if (midi < 0 || midi > 127) continue;
 
         const pitchClass = ((midi % 12) + 12) % 12;
         const noteOctave = Math.floor(midi / 12) - 1;
-        const noteName = NOTE_NAMES[pitchClass];
 
         cells.push({
           q, r, cx, cy, midi,
-          noteName, noteOctave, pitchClass,
-          points: hexPoints(cx, cy, HEX_SIZE - 1), // slight inset for gap between hexes
+          noteName: NOTE_NAMES[pitchClass],
+          noteOctave,
+          pitchClass,
+          points: hexPoints(cx, cy, HEX_SIZE - 1),
         });
       }
     }
-
     return cells;
   }
 
   let hexes = $derived(buildHexes(octave));
-
-  // ── SVG viewBox calculation ───────────────────────────────────────────────
 
   let viewBox = $derived((() => {
     if (hexes.length === 0) return '0 0 100 100';
@@ -269,58 +125,25 @@
   // ── Active note tracking ──────────────────────────────────────────────────
 
   let activeNoteSet = $state<Set<number>>(new Set());
-  let chordName     = $state<string | null>(null);
+  let chordName = $state<string | null>(null);
 
-  // RAF polling keeps the display in sync without re-triggering heavy derived
   let animFrame = 0;
-
   function pollEngine() {
-    const notes = engine.getActiveNotes();
-    activeNoteSet = new Set(notes);
+    activeNoteSet = new Set(engine.getActiveNotes());
     animFrame = requestAnimationFrame(pollEngine);
   }
 
   $effect(() => {
     animFrame = requestAnimationFrame(pollEngine);
-    // Subscribe to spore updates for chord name
     const unsub = engine.onSpore('note_data', (data) => {
-      const spore = data as unknown as { chordName: string | null };
-      chordName = spore.chordName;
+      chordName = (data as any).chordName ?? null;
     });
-    return () => {
-      cancelAnimationFrame(animFrame);
-      unsub();
-    };
+    return () => { cancelAnimationFrame(animFrame); unsub(); };
   });
 
-  // ── Touch / pointer interaction ───────────────────────────────────────────
+  // ── Pointer interaction (press-and-hold, no toggle) ───────────────────────
 
-  /**
-   * Map from pointer id → midi note currently held by that pointer.
-   * Using a plain object is fine here — we don't need reactivity on this map.
-   */
   const pointerNotes = new Map<number, number>();
-
-  /** Find the hex whose centre is nearest to (px, py) within HEX_SIZE distance. */
-  function hitTest(px: number, py: number): HexCell | null {
-    let best: HexCell | null = null;
-    let bestDist = HEX_SIZE; // must be within one radius
-    for (const hex of hexes) {
-      const dx = px - hex.cx;
-      const dy = py - hex.cy;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < bestDist) {
-        bestDist = d;
-        best = hex;
-      }
-    }
-    return best;
-  }
-
-  /**
-   * Convert a client-space (x, y) to SVG user-space coordinates.
-   * We need to account for the SVG's current transform / viewBox.
-   */
   let svgEl: SVGSVGElement | undefined = $state();
 
   function clientToSvg(clientX: number, clientY: number): { x: number; y: number } {
@@ -332,13 +155,25 @@
     return { x: svgPt.x, y: svgPt.y };
   }
 
+  function hitTest(px: number, py: number): HexCell | null {
+    let best: HexCell | null = null;
+    let bestDist = HEX_SIZE;
+    for (const hex of hexes) {
+      const dx = px - hex.cx;
+      const dy = py - hex.cy;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < bestDist) { bestDist = d; best = hex; }
+    }
+    return best;
+  }
+
   function onPointerDown(e: PointerEvent) {
     e.preventDefault();
+    e.stopPropagation();
     (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
     const { x, y } = clientToSvg(e.clientX, e.clientY);
     const hex = hitTest(x, y);
     if (!hex) return;
-    // If pointer was already tracking a note (shouldn't happen, but guard)
     const prev = pointerNotes.get(e.pointerId);
     if (prev !== undefined) engine.noteOff(prev);
     pointerNotes.set(e.pointerId, hex.midi);
@@ -348,11 +183,11 @@
   function onPointerMove(e: PointerEvent) {
     if (!pointerNotes.has(e.pointerId)) return;
     e.preventDefault();
+    e.stopPropagation();
     const { x, y } = clientToSvg(e.clientX, e.clientY);
     const hex = hitTest(x, y);
     const prev = pointerNotes.get(e.pointerId)!;
     if (!hex || hex.midi === prev) return;
-    // Finger slid to a different hex
     engine.noteOff(prev);
     pointerNotes.set(e.pointerId, hex.midi);
     engine.noteOn(hex.midi);
@@ -364,18 +199,13 @@
       engine.noteOff(midi);
       pointerNotes.delete(e.pointerId);
     }
-    try {
-      (e.currentTarget as SVGSVGElement).releasePointerCapture(e.pointerId);
-    } catch { /* ignore if already released */ }
-  }
-
-  function onPointerCancel(e: PointerEvent) {
-    onPointerUp(e);
+    try { (e.currentTarget as SVGSVGElement).releasePointerCapture(e.pointerId); }
+    catch { /* already released */ }
   }
 </script>
 
-<ModulePanel title="Hex Keys" gridWidth={8} gridHeight={8}>
-  <!-- Hex grid SVG -->
+<ModulePanel title="Hex Keys" gridWidth={12} gridHeight={5}>
+  <!-- Hex grid SVG — takes most of the space -->
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <svg
     class="hex-grid"
@@ -387,101 +217,98 @@
     onpointerdown={onPointerDown}
     onpointermove={onPointerMove}
     onpointerup={onPointerUp}
-    onpointercancel={onPointerCancel}
+    onpointercancel={onPointerUp}
   >
     {#each hexes as hex (hex.q * 100 + hex.r)}
       {@const isActive = activeNoteSet.has(hex.midi)}
       {@const fillColor = isActive ? PITCH_COLORS_ACTIVE[hex.pitchClass] : PITCH_COLORS[hex.pitchClass]}
-      <g class="hex-cell">
+      <g>
         <polygon
           points={hex.points}
           fill={fillColor}
-          stroke="rgba(0,0,0,0.45)"
+          stroke="rgba(0,0,0,0.4)"
           stroke-width="1"
           stroke-linejoin="round"
         />
         {#if isActive}
-          <!-- Glow ring behind the hex when active -->
           <polygon
-            points={hexPoints(hex.cx, hex.cy, HEX_SIZE + 3)}
+            points={hexPoints(hex.cx, hex.cy, HEX_SIZE + 2)}
             fill="none"
             stroke={PITCH_COLORS_ACTIVE[hex.pitchClass]}
-            stroke-width="2.5"
+            stroke-width="2"
             stroke-linejoin="round"
-            opacity="0.6"
+            opacity="0.5"
           />
         {/if}
-        <!-- Note name -->
         <text
           x={hex.cx}
-          y={hex.cy - 4}
+          y={hex.cy - 3}
           text-anchor="middle"
           dominant-baseline="middle"
           class="note-name"
           class:active-text={isActive}
         >{hex.noteName}</text>
-        <!-- Octave number -->
         <text
           x={hex.cx}
-          y={hex.cy + 9}
+          y={hex.cy + 8}
           text-anchor="middle"
           dominant-baseline="middle"
-          class="note-octave"
+          class="note-oct"
           class:active-text={isActive}
         >{hex.noteOctave}</text>
       </g>
     {/each}
   </svg>
 
-  <!-- Chord display -->
-  <div class="chord-display">
-    {#if chordName}
-      <span class="chord-name">{chordName}</span>
-    {:else}
-      <span class="chord-hint">touch hexagons to play</span>
-    {/if}
-  </div>
+  <!-- Bottom bar: chord name, controls, ports, lock -->
+  <div class="bottom-bar">
+    <div class="chord-display">
+      {#if chordName}
+        <span class="chord-name">{chordName}</span>
+      {:else}
+        <span class="chord-hint">touch to play</span>
+      {/if}
+    </div>
 
-  <!-- Knob controls -->
-  <div class="controls-row">
-    <Knob value={octave} min={1} max={7} label="OCT" onChange={setOctave} />
-    <Knob value={velocity} min={0} max={1} label="VEL" onChange={setVelocity} />
-  </div>
+    <div class="controls-group">
+      <Knob value={octave} min={1} max={7} label="OCT" onChange={setOctave} />
+      <Knob value={velocity} min={0} max={1} label="VEL" onChange={setVelocity} />
+    </div>
 
-  <!-- Output ports -->
-  <div class="ports-row">
-    <PortJack
-      id="cv_out"
-      type="control"
-      direction="output"
-      label="CV"
-      connected={connectedPorts.has('cv_out')}
-      onConnect={() => handlePortConnect('cv_out')}
-      {moduleId}
-    />
-    <PortJack
-      id="gate_out"
-      type="control"
-      direction="output"
-      label="GATE"
-      connected={connectedPorts.has('gate_out')}
-      onConnect={() => handlePortConnect('gate_out')}
-      {moduleId}
-    />
-    <PortJack
-      id="note_data"
-      type="spore"
-      direction="output"
-      label="SPORE"
-      connected={connectedPorts.has('note_data')}
-      onConnect={() => handlePortConnect('note_data')}
-      {moduleId}
-    />
+    <div class="ports-group">
+      <PortJack
+        id="cv_out" type="control" direction="output" label="CV"
+        connected={connectedPorts.has('cv_out')}
+        onConnect={() => handlePortConnect('cv_out')}
+        {moduleId}
+      />
+      <PortJack
+        id="gate_out" type="control" direction="output" label="GATE"
+        connected={connectedPorts.has('gate_out')}
+        onConnect={() => handlePortConnect('gate_out')}
+        {moduleId}
+      />
+      <PortJack
+        id="note_data" type="spore" direction="output" label="SPORE"
+        connected={connectedPorts.has('note_data')}
+        onConnect={() => handlePortConnect('note_data')}
+        {moduleId}
+      />
+    </div>
+
+    <!-- Lock button — disables rack pan/zoom when playing -->
+    <button
+      class="lock-btn"
+      class:locked
+      onclick={toggleLock}
+      title={locked ? 'Unlock rack pan/zoom' : 'Lock rack — disable pan/zoom for playing'}
+    >
+      {locked ? 'UNLOCK' : 'LOCK'}
+    </button>
   </div>
 </ModulePanel>
 
 <style>
-  /* The SVG fills all available horizontal space and most of the vertical space */
   .hex-grid {
     width: 100%;
     flex: 1;
@@ -492,73 +319,96 @@
     user-select: none;
   }
 
-  /* Note name text */
   :global(.note-name) {
     font-family: 'Courier New', monospace;
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 600;
-    fill: rgba(255, 255, 255, 0.75);
+    fill: rgba(255, 255, 255, 0.7);
     pointer-events: none;
     user-select: none;
   }
 
   :global(.note-name.active-text) {
-    fill: rgba(255, 255, 255, 0.97);
-    font-weight: 700;
+    fill: rgba(255, 255, 255, 0.95);
   }
 
-  /* Octave number text */
-  :global(.note-octave) {
+  :global(.note-oct) {
     font-family: 'Courier New', monospace;
-    font-size: 7px;
-    fill: rgba(255, 255, 255, 0.45);
+    font-size: 6px;
+    fill: rgba(255, 255, 255, 0.35);
     pointer-events: none;
     user-select: none;
   }
 
-  :global(.note-octave.active-text) {
-    fill: rgba(255, 255, 255, 0.8);
+  :global(.note-oct.active-text) {
+    fill: rgba(255, 255, 255, 0.7);
   }
 
-  /* Chord name display bar */
-  .chord-display {
+  /* Bottom bar — horizontal strip below the hex grid */
+  .bottom-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     width: 100%;
+    flex-shrink: 0;
+    padding: 2px 0;
+  }
+
+  .chord-display {
+    min-width: 70px;
     text-align: center;
-    min-height: 18px;
     flex-shrink: 0;
   }
 
   .chord-name {
     font-family: var(--label-font, 'Courier New', monospace);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     color: var(--knob-indicator, #7fba5c);
     letter-spacing: 0.04em;
-    text-shadow: 0 0 8px var(--knob-indicator, #7fba5c);
+    text-shadow: 0 0 6px var(--knob-indicator, #7fba5c);
   }
 
   .chord-hint {
     font-family: var(--label-font, 'Courier New', monospace);
-    font-size: 9px;
+    font-size: 8px;
     color: var(--label-color, #a89880);
-    opacity: 0.5;
+    opacity: 0.4;
+  }
+
+  .controls-group {
+    display: flex;
+    gap: 8px;
+  }
+
+  .ports-group {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .lock-btn {
+    font-family: var(--label-font, 'Courier New', monospace);
+    font-size: 8px;
+    color: var(--label-color, #a89880);
+    background: rgba(26, 18, 16, 0.6);
+    border: 1px solid var(--port-stroke, #5a4a3a);
+    border-radius: 2px;
+    padding: 3px 6px;
+    cursor: pointer;
+    text-transform: uppercase;
     letter-spacing: 0.06em;
-  }
-
-  /* Controls row: two knobs side by side */
-  .controls-row {
-    display: flex;
-    gap: 16px;
-    justify-content: center;
+    transition: border-color 0.12s, color 0.12s;
     flex-shrink: 0;
   }
 
-  /* Ports row: three jacks spread across the bottom */
-  .ports-row {
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
-    padding: 0 4px;
-    flex-shrink: 0;
+  .lock-btn:hover {
+    border-color: var(--label-color, #a89880);
+  }
+
+  .lock-btn.locked {
+    border-color: var(--knob-indicator, #7fba5c);
+    color: var(--knob-indicator, #7fba5c);
+    background: rgba(127, 186, 92, 0.1);
   }
 </style>
