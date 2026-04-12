@@ -97,10 +97,10 @@
   // Accidentals: C#, D#, F#, G#, A# — the chromatic fill
   const NATURAL_SET = new Set([0, 2, 4, 5, 7, 9, 11]); // C D E F G A B
 
-  const COLOR_NATURAL     = '#1e1a16';  // warm dark — aged wood
-  const COLOR_ACCIDENTAL  = '#12141a';  // cool dark — deep shadow
-  const COLOR_NATURAL_ACTIVE    = '#6a5a3a';  // warm glow — amber firelight
-  const COLOR_ACCIDENTAL_ACTIVE = '#3a4a6a';  // cool glow — moonlit stone
+  const COLOR_NATURAL     = '#2a2218';  // warm dark — aged wood
+  const COLOR_ACCIDENTAL  = '#0e1018';  // cool dark — deep shadow
+  const COLOR_NATURAL_ACTIVE    = '#8a7040';  // warm glow — amber firelight
+  const COLOR_ACCIDENTAL_ACTIVE = '#405a8a';  // cool glow — moonlit stone
 
   function hexColor(pitchClass: number, active: boolean): string {
     const isNatural = NATURAL_SET.has(pitchClass);
