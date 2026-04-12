@@ -22,6 +22,8 @@ The framework simulates analog signal behavior in a digital environment. Web Aud
 
 **Themes are environments, not skins.** A theme transforms the entire feel — knob textures, cable appearance, panel materials, signal indicators. The first theme is Ancient Forest: tree-ring knobs, vine cables, bark panels, bioluminescent signal flow.
 
+**The rack is a grid you compose.** Modules are physical blocks that snap to a grid — like stones arranged in a garden. You choose where each module lives. No overlapping, no chaos — just deliberate placement. Two people with the same modules will have different-looking instruments. The spatial arrangement itself is creative expression.
+
 **Patch cables are visible signal.** When enabled, cables render between connected ports. They carry the theme's visual language. They can be toggled on/off globally. When on, they're part of the aesthetic — not just plumbing.
 
 ---
@@ -35,6 +37,8 @@ The framework simulates analog signal behavior in a digital environment. Web Aud
 3. **Framework-first.** The module and theme systems are first-class architectural concerns. Adding a new module or theme should never require touching core code.
 
 4. **The builder is the instrument.** Configuring the rack, choosing modules, patching signals, tweaking themes — this is the creative act. The UI should make this feel like play, not work.
+
+5. **The grid is the canvas.** Modules snap to a grid and occupy a defined footprint (width x height in grid units). Placement is free — any open space on the grid — but no overlapping. The grid itself is part of the theme aesthetic.
 
 ---
 

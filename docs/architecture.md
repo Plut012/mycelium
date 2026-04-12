@@ -110,6 +110,8 @@ interface ModuleManifest {
   inputs: PortDefinition[];            // typed audio/control inputs
   outputs: PortDefinition[];           // typed audio/control outputs
   parameters: ParameterDefinition[];   // knobs, switches, selectors
+  gridWidth?: number;                  // width in grid units (default 3)
+  gridHeight?: number;                 // height in grid units (default 4)
 }
 ```
 
@@ -177,24 +179,63 @@ interface ParameterDefinition {
 The workspace that manages everything:
 
 ```typescript
+interface ModuleInstance {
+  id: string;
+  type: string;
+  engine: ModuleEngine;
+  position: { x: number; y: number };   // grid coordinates (column, row)
+  size: { w: number; h: number };        // grid units
+  manifest: ModuleManifest;
+}
+
 class Rack {
   modules: Map<string, ModuleInstance>;    // placed modules
   connections: Connection[];               // patch cables
   audioContext: AudioContext;
 
-  addModule(type: string, position: {x, y}): ModuleInstance;
+  addModule(engine, manifest, position, id?): ModuleInstance;
   removeModule(id: string): void;
   connect(from: PortRef, to: PortRef): Connection;
   disconnect(connectionId: string): void;
 
   // Persistence — simple functions, not a layer
   serialize(): RackState;
-  save(name: string): Promise<void>;           // serialize -> IndexedDB
-  static load(name: string): Promise<Rack>;    // IndexedDB -> deserialize
-  toURL(): string;                              // serialize -> compressed URL hash
-  static fromURL(hash: string): Rack;          // URL hash -> deserialize
+  save(): Promise<void>;                        // serialize -> IndexedDB
+  static loadState(id: string): Promise<RackState | null>;
+  toURL(): Promise<string>;                     // serialize -> compressed URL hash
+  static fromURLHash(hash: string): Promise<RackState>;
 }
 ```
+
+Module positions are **grid coordinates** (column, row), not pixel values. The UI multiplies by the cell size constant (60px) for rendering. Collision detection uses AABB overlap tests — modules cannot overlap on the grid.
+
+---
+
+## Grid Layout
+
+The rack workspace is a fixed grid. Modules snap to cells and cannot overlap.
+
+**Constants:**
+- Cell size: 60px
+- Default grid: 24 columns x 16 rows (1440 x 960px)
+- Module sizes defined in manifests as `gridWidth` x `gridHeight` (in grid units)
+
+**Current module sizes:**
+
+| Module | Grid Size | Notes |
+|--------|-----------|-------|
+| Oscillator | 3 x 5 | Waveform selector, 2 knobs, signal display, 2 ports |
+| Filter | 3 x 5 | Type selector, 2 knobs, 3 ports |
+| Delay | 3 x 5 | 3 knobs, 2 ports |
+| Gain | 2 x 4 | 1 knob, 3 ports |
+| Output | 2 x 4 | 1 knob, signal display, 1 port |
+| Audio Input | 2 x 4 | 1 knob, status indicator, 1 port |
+
+**Placement rules:**
+- New modules auto-find the first free grid position (scan left-to-right, top-to-bottom)
+- Drag snaps to grid — a ghost outline shows the target position (green = valid, red = collision)
+- Grid lines are part of the theme aesthetic (`--grid-line` CSS custom property)
+- Position is stored as grid coordinates (col, row), not pixels
 
 ---
 

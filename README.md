@@ -13,18 +13,19 @@ Open `http://localhost:5173`
 
 ## What Is This?
 
-Mycelium is a browser-based modular synthesizer where you build signal paths from scratch. Drag modules onto the rack, patch them together with cables, shape your sound.
+Mycelium is a browser-based modular synthesizer where you build signal paths from scratch. Place modules on a grid, patch them together with cables, shape your sound. The spatial arrangement is yours — each rack is a personal instrument.
 
 Each module simulates an analog component — oscillators, filters, effects, modulation sources. The signal path runs through the Web Audio API. The interface runs through Svelte.
 
 ## Features
 
-- Drag-and-drop modular rack
+- Grid-based modular rack — snap modules to a grid, arrange freely, no overlapping
 - Real audio signal path via Web Audio API
-- Patch cables with visual signal flow
-- Per-module theming
+- Patch cables with catenary curves and visual signal flow
+- Deep theming via CSS custom properties (environments, not skins)
 - Growing module library (sources, filters, effects, modulation, utilities)
-- Save/load rack configurations
+- Save/load rack configurations to browser storage
+- Share patches via URL (zero-infrastructure sharing)
 - Containerized deployment
 
 ## Module Library
@@ -65,7 +66,9 @@ See `docs/architecture.md` for the module creation guide. Each module is three f
 
 ```
 src/lib/modules/{name}/
-├── manifest.ts    # Metadata, ports, parameters
+├── manifest.ts    # Metadata, ports, parameters, grid size
 ├── engine.ts      # Audio engine (wraps Web Audio nodes)
-└── Module.svelte  # UI component
+└── Module.svelte  # UI component (sized to grid units)
 ```
+
+Modules declare their grid footprint (`gridWidth` x `gridHeight`) in the manifest. The `ModulePanel` component sizes itself accordingly.
