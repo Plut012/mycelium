@@ -89,6 +89,7 @@
     noteName: string;
     noteOctave: number;
     pitchClass: number;
+    isNatural: boolean;
     points: string;
   }
 
@@ -97,10 +98,10 @@
   // Accidentals: C#, D#, F#, G#, A# — the chromatic fill
   const NATURAL_SET = new Set([0, 2, 4, 5, 7, 9, 11]); // C D E F G A B
 
-  const COLOR_NATURAL     = '#2a2218';  // warm dark — aged wood
-  const COLOR_ACCIDENTAL  = '#0e1018';  // cool dark — deep shadow
-  const COLOR_NATURAL_ACTIVE    = '#8a7040';  // warm glow — amber firelight
-  const COLOR_ACCIDENTAL_ACTIVE = '#405a8a';  // cool glow — moonlit stone
+  const COLOR_NATURAL     = '#d0ccc4';  // white (warm off-white)
+  const COLOR_ACCIDENTAL  = '#1a1a1a';  // black
+  const COLOR_NATURAL_ACTIVE    = '#f0e8d8';  // bright white
+  const COLOR_ACCIDENTAL_ACTIVE = '#4a4a4a';  // lit dark grey
 
   function hexColor(pitchClass: number, active: boolean): string {
     const isNatural = NATURAL_SET.has(pitchClass);
@@ -143,6 +144,7 @@
           q, r, cx, cy, midi,
           noteName: NOTE_NAMES[pitchClass],
           noteOctave, pitchClass,
+          isNatural: NATURAL_SET.has(pitchClass),
           points: hexPoints(cx, cy, HEX_SIZE - 1),
         });
       }
@@ -286,8 +288,8 @@
       {#if isActive}
         <polygon points={hexPoints(hex.cx, hex.cy, HEX_SIZE + 2)} fill="none" stroke={hexGlowColor(hex.pitchClass)} stroke-width="2" stroke-linejoin="round" opacity="0.5" />
       {/if}
-      <text x={hex.cx} y={hex.cy - 3} text-anchor="middle" dominant-baseline="middle" class="note-name" class:active-text={isActive}>{hex.noteName}</text>
-      <text x={hex.cx} y={hex.cy + 8} text-anchor="middle" dominant-baseline="middle" class="note-oct" class:active-text={isActive}>{hex.noteOctave}</text>
+      <text x={hex.cx} y={hex.cy - 3} text-anchor="middle" dominant-baseline="middle" class="note-name" class:active-text={isActive} class:dark-text={hex.isNatural}>{hex.noteName}</text>
+      <text x={hex.cx} y={hex.cy + 8} text-anchor="middle" dominant-baseline="middle" class="note-oct" class:active-text={isActive} class:dark-text={hex.isNatural}>{hex.noteOctave}</text>
     {/each}
   </svg>
 
@@ -332,8 +334,8 @@
         {#if isActive}
           <polygon points={hexPoints(hex.cx, hex.cy, HEX_SIZE + 2)} fill="none" stroke={hexGlowColor(hex.pitchClass)} stroke-width="2" stroke-linejoin="round" opacity="0.6" />
         {/if}
-        <text x={hex.cx} y={hex.cy - 3} text-anchor="middle" dominant-baseline="middle" class="note-name" class:active-text={isActive}>{hex.noteName}</text>
-        <text x={hex.cx} y={hex.cy + 8} text-anchor="middle" dominant-baseline="middle" class="note-oct" class:active-text={isActive}>{hex.noteOctave}</text>
+        <text x={hex.cx} y={hex.cy - 3} text-anchor="middle" dominant-baseline="middle" class="note-name" class:active-text={isActive} class:dark-text={hex.isNatural}>{hex.noteName}</text>
+        <text x={hex.cx} y={hex.cy + 8} text-anchor="middle" dominant-baseline="middle" class="note-oct" class:active-text={isActive} class:dark-text={hex.isNatural}>{hex.noteOctave}</text>
       {/each}
     </svg>
 
@@ -378,7 +380,9 @@
     pointer-events: none;
     user-select: none;
   }
+  :global(.note-name.dark-text) { fill: rgba(0, 0, 0, 0.6); }
   :global(.note-name.active-text) { fill: rgba(255, 255, 255, 0.95); }
+  :global(.note-name.active-text.dark-text) { fill: rgba(0, 0, 0, 0.8); }
 
   :global(.note-oct) {
     font-family: 'Courier New', monospace;
@@ -387,7 +391,9 @@
     pointer-events: none;
     user-select: none;
   }
+  :global(.note-oct.dark-text) { fill: rgba(0, 0, 0, 0.4); }
   :global(.note-oct.active-text) { fill: rgba(255, 255, 255, 0.7); }
+  :global(.note-oct.active-text.dark-text) { fill: rgba(0, 0, 0, 0.6); }
 
   /* Bottom bar */
   .bottom-bar {

@@ -10,7 +10,6 @@
 
   let { value, min, max, label, unit = '', onChange }: Props = $props();
 
-  // Rotation range: 270 degrees, from -135deg (7 o'clock) to +135deg (5 o'clock)
   const ROTATION_RANGE = 270;
   const ROTATION_MIN = -135;
 
@@ -19,24 +18,19 @@
   let dragStartValue = $state(0);
   let dragAccum = $state(0);
 
-  // Touch slider overlay state
-  let isTouchDevice = $state(false);
+  // Touch slider overlay
   let showSlider = $state(false);
   let sliderTrackEl: HTMLDivElement | undefined = $state();
   let isSliderDragging = $state(false);
 
-  $effect(() => {
-    isTouchDevice = 'ontouchstart' in window;
-  });
+  // Track whether last interaction was touch (to avoid pointer event conflicts)
+  let lastWasTouch = false;
 
   const normalised = $derived((value - min) / (max - min));
   const rotation = $derived(ROTATION_MIN + normalised * ROTATION_RANGE);
-
   const displayValue = $derived(
     Number.isInteger(value) ? String(value) : value.toFixed(2)
   );
-
-  // Thumb top percentage: 0% = top (max), 100% = bottom (min)
   const sliderThumbTop = $derived((1 - normalised) * 100);
 
   function clamp(v: number, lo: number, hi: number) {
@@ -46,7 +40,7 @@
   // ── Desktop pointer-lock drag ──────────────────────────────────────────────
 
   function onpointerdown(e: PointerEvent) {
-    if (isTouchDevice) return;
+    if (lastWasTouch) { lastWasTouch = false; return; }
     e.preventDefault();
     isDragging = true;
     dragStartValue = value;
@@ -57,8 +51,6 @@
 
   function onpointermove(e: PointerEvent) {
     if (!isDragging) return;
-    // movementY: drag up = negative = increase value
-    // sensitivity: full range across ~200px vertical drag
     const sensitivity = (max - min) / 200;
     dragAccum -= e.movementY * sensitivity;
     const newValue = clamp(dragStartValue + dragAccum, min, max);
@@ -73,7 +65,6 @@
   }
 
   function ondblclick() {
-    // Reset to midpoint on double-click
     onChange((min + max) / 2);
   }
 
@@ -81,11 +72,15 @@
 
   function onknobtouch(e: TouchEvent) {
     e.preventDefault();
+    e.stopPropagation();
+    lastWasTouch = true;
     showSlider = !showSlider;
     isSliderDragging = false;
   }
 
-  function dismissSlider() {
+  function dismissSlider(e?: Event) {
+    e?.preventDefault();
+    e?.stopPropagation();
     showSlider = false;
     isSliderDragging = false;
   }
@@ -100,7 +95,7 @@
     return clamp(min + ratio * (max - min), min, max);
   }
 
-  function onslidertracktouch(e: TouchEvent) {
+  function onslidertouch(e: TouchEvent) {
     e.preventDefault();
     e.stopPropagation();
     if (e.touches.length === 0) return;
@@ -108,7 +103,7 @@
     onChange(valueFromClientY(e.touches[0].clientY));
   }
 
-  function onslidertracktouchmove(e: TouchEvent) {
+  function onslidermove(e: TouchEvent) {
     if (!isSliderDragging) return;
     e.preventDefault();
     e.stopPropagation();
@@ -116,7 +111,7 @@
     onChange(valueFromClientY(e.touches[0].clientY));
   }
 
-  function onslidertracktouchend(e: TouchEvent) {
+  function onsliderend() {
     isSliderDragging = false;
   }
 </script>
@@ -151,39 +146,35 @@
 </div>
 
 {#if showSlider}
-  <!-- Full-screen backdrop catches taps to dismiss -->
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="slider-backdrop"
-    onclick={dismissSlider}
     ontouchstart={dismissSlider}
+    onclick={dismissSlider}
+    style="touch-action: none;"
   ></div>
 
-  <!-- Right-edge slider panel -->
-  <div class="slider-panel" onclick={(e) => e.stopPropagation()}>
-    <!-- Label + value info -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="slider-panel" style="touch-action: none;">
     <div class="slider-info">
       <div class="slider-info-label">{label}</div>
       <div class="slider-info-value">{displayValue}{unit}</div>
     </div>
 
-    <!-- Vertical track -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="slider-track"
       bind:this={sliderTrackEl}
-      ontouchstart={onslidertracktouch}
-      ontouchmove={onslidertracktouchmove}
-      ontouchend={onslidertracktouchend}
+      ontouchstart={onslidertouch}
+      ontouchmove={onslidermove}
+      ontouchend={onsliderend}
+      style="touch-action: none;"
     >
-      <!-- Fill bar -->
       <div class="slider-fill" style:height="{normalised * 100}%"></div>
-      <!-- Thumb -->
       <div class="slider-thumb" style:top="{sliderThumbTop}%"></div>
     </div>
 
-    <!-- Dismiss button -->
-    <button class="slider-close" onclick={dismissSlider} aria-label="Close">✕</button>
+    <button class="slider-close" onclick={dismissSlider}>DONE</button>
   </div>
 {/if}
 
@@ -216,9 +207,7 @@
       0 0 0 2px var(--knob-indicator, #7fba5c);
   }
 
-  .knob.dragging {
-    cursor: none;
-  }
+  .knob.dragging { cursor: none; }
 
   .track-ring {
     position: absolute;
@@ -228,15 +217,12 @@
     pointer-events: none;
   }
 
-  /* The indicator arm rotates around the knob centre */
   .indicator {
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    /* transform-origin is centre by default */
   }
 
-  /* The dot sits at the top of the indicator, offset toward the edge */
   .dot {
     position: absolute;
     top: 15%;
@@ -268,32 +254,29 @@
     line-height: 1;
   }
 
-  /* ── Touch slider overlay ───────────────────────────────────────────────── */
+  /* ── Slider overlay ──────────────────────────────────────────────────────── */
 
   .slider-backdrop {
     position: fixed;
     inset: 0;
+    background: rgba(0, 0, 0, 0.4);
     z-index: 999;
-    background: rgba(0, 0, 0, 0.35);
-    /* Prevents scroll-through on iOS */
-    touch-action: none;
   }
 
   .slider-panel {
     position: fixed;
-    top: 0;
     right: 0;
+    top: 0;
     height: 100vh;
-    width: 60px;
+    width: 70px;
+    background: rgba(10, 13, 10, 0.95);
+    border-left: 1px solid var(--port-stroke, #5a4a3a);
     z-index: 1000;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 40px 0;
-    box-sizing: border-box;
-    background: var(--rack-bg, rgba(20, 14, 10, 0.96));
-    border-left: 1px solid var(--knob-track, #5a4a3a);
-    gap: 8px;
+    padding: 20px 8px;
+    gap: 12px;
   }
 
   .slider-info {
@@ -301,39 +284,31 @@
     flex-direction: column;
     align-items: center;
     gap: 2px;
-    width: 100%;
-    padding: 0 4px;
-    box-sizing: border-box;
+    flex-shrink: 0;
   }
 
   .slider-info-label {
     font-family: var(--label-font, 'Courier New', monospace);
-    font-size: 9px;
+    font-size: 10px;
     color: var(--label-color, #a89880);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    text-align: center;
-    word-break: break-all;
-    line-height: 1.2;
+    letter-spacing: 0.08em;
   }
 
   .slider-info-value {
     font-family: var(--label-font, 'Courier New', monospace);
-    font-size: 10px;
+    font-size: 12px;
     color: var(--knob-indicator, #7fba5c);
-    text-align: center;
-    line-height: 1;
+    font-weight: 600;
   }
 
   .slider-track {
     flex: 1;
-    width: 16px;
+    width: 32px;
+    background: var(--knob-track, #5a4a3a);
+    border-radius: 4px;
     position: relative;
-    background: var(--knob-body, #2a1f1a);
-    border: 1px solid var(--knob-track, #5a4a3a);
-    border-radius: 8px;
-    touch-action: none;
-    overflow: visible;
+    overflow: hidden;
   }
 
   .slider-fill {
@@ -341,42 +316,33 @@
     bottom: 0;
     left: 0;
     right: 0;
-    border-radius: 0 0 7px 7px;
-    background: var(--knob-track, #5a4a3a);
-    pointer-events: none;
+    background: var(--knob-indicator, #7fba5c);
+    opacity: 0.3;
+    border-radius: 4px;
   }
 
   .slider-thumb {
     position: absolute;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 28px;
-    height: 10px;
-    border-radius: 4px;
+    left: 0;
+    right: 0;
+    height: 4px;
     background: var(--knob-indicator, #7fba5c);
+    border-radius: 2px;
     box-shadow: 0 0 6px var(--knob-indicator, #7fba5c);
-    pointer-events: none;
+    transform: translateY(-50%);
   }
 
   .slider-close {
-    background: none;
-    border: 1px solid var(--knob-track, #5a4a3a);
-    border-radius: 50%;
+    font-family: var(--label-font, 'Courier New', monospace);
+    font-size: 9px;
     color: var(--label-color, #a89880);
-    font-size: 12px;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: rgba(26, 18, 16, 0.8);
+    border: 1px solid var(--port-stroke, #5a4a3a);
+    border-radius: 3px;
+    padding: 6px 12px;
     cursor: pointer;
-    padding: 0;
-    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     flex-shrink: 0;
-  }
-
-  .slider-close:active {
-    background: var(--knob-track, #5a4a3a);
-    color: var(--knob-indicator, #7fba5c);
   }
 </style>
