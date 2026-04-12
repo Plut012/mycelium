@@ -92,36 +92,30 @@
     points: string;
   }
 
-  // Idle: deep muted tones — dark forest floor palette
-  const PITCH_COLORS: string[] = [
-    '#2e1a1a', // C  — deep ember
-    '#2a1e1a', // C# — dark bark
-    '#2a251a', // D  — deep moss
-    '#222a1a', // D# — shadow fern
-    '#1a2a1e', // E  — dark pine
-    '#1a2a26', // F  — deep lichen
-    '#1a262a', // F# — twilight pool
-    '#1a1e2a', // G  — night sky
-    '#1e1a2a', // G# — deep violet
-    '#261a2a', // A  — dark plum
-    '#2a1a24', // A# — shadow rose
-    '#2a1a1e', // B  — dark clay
-  ];
+  // Two-color system: naturals (warm) vs accidentals (cool)
+  // Natural notes: C, D, E, F, G, A, B — the diatonic skeleton
+  // Accidentals: C#, D#, F#, G#, A# — the chromatic fill
+  const NATURAL_SET = new Set([0, 2, 4, 5, 7, 9, 11]); // C D E F G A B
 
-  // Active: warm bioluminescent glow — gentle, not harsh
-  const PITCH_COLORS_ACTIVE: string[] = [
-    '#8a4a3a', // C  — warm amber
-    '#7a5438', // C# — soft copper
-    '#7a6a38', // D  — golden moss
-    '#5a7a3a', // D# — spring green
-    '#3a7a4a', // E  — forest glow
-    '#3a7a68', // F  — jade
-    '#3a687a', // F# — ocean
-    '#3a4a7a', // G  — dusk blue
-    '#4a3a7a', // G# — soft violet
-    '#683a7a', // A  — orchid
-    '#7a3a60', // A# — warm magenta
-    '#7a3a44', // B  — dusty rose
+  const COLOR_NATURAL     = '#1e1a16';  // warm dark — aged wood
+  const COLOR_ACCIDENTAL  = '#12141a';  // cool dark — deep shadow
+  const COLOR_NATURAL_ACTIVE    = '#6a5a3a';  // warm glow — amber firelight
+  const COLOR_ACCIDENTAL_ACTIVE = '#3a4a6a';  // cool glow — moonlit stone
+
+  function hexColor(pitchClass: number, active: boolean): string {
+    const isNatural = NATURAL_SET.has(pitchClass);
+    if (active) return isNatural ? COLOR_NATURAL_ACTIVE : COLOR_ACCIDENTAL_ACTIVE;
+    return isNatural ? COLOR_NATURAL : COLOR_ACCIDENTAL;
+  }
+
+  function hexGlowColor(pitchClass: number): string {
+    return NATURAL_SET.has(pitchClass) ? COLOR_NATURAL_ACTIVE : COLOR_ACCIDENTAL_ACTIVE;
+  }
+
+  // Roman numeral interval display
+  const INTERVAL_NAMES: string[] = [
+    'I', 'bII', 'II', 'bIII', 'III', 'IV',
+    'bV', 'V', 'bVI', 'VI', 'bVII', 'VII',
   ];
 
   function hexPoints(cx: number, cy: number, size: number): string {
@@ -175,10 +169,23 @@
 
   let activeNoteSet = $state<Set<number>>(new Set());
   let chordName = $state<string | null>(null);
+  let intervalDisplay = $state('');
+
+  function computeIntervals(notes: number[]): string {
+    if (notes.length < 2) return '';
+    const sorted = [...notes].sort((a, b) => a - b);
+    const root = sorted[0];
+    return sorted.map((n) => {
+      const semitones = ((n - root) % 12 + 12) % 12;
+      return INTERVAL_NAMES[semitones];
+    }).join('  ');
+  }
 
   let animFrame = 0;
   function pollEngine() {
-    activeNoteSet = new Set(engine.getActiveNotes());
+    const notes = engine.getActiveNotes();
+    activeNoteSet = new Set(notes);
+    intervalDisplay = computeIntervals(notes);
     animFrame = requestAnimationFrame(pollEngine);
   }
 
@@ -274,10 +281,10 @@
   >
     {#each hexes as hex (hex.q * 100 + hex.r)}
       {@const isActive = activeNoteSet.has(hex.midi)}
-      {@const fillColor = isActive ? PITCH_COLORS_ACTIVE[hex.pitchClass] : PITCH_COLORS[hex.pitchClass]}
+      {@const fillColor = hexColor(hex.pitchClass, isActive)}
       <polygon points={hex.points} fill={fillColor} stroke="rgba(0,0,0,0.4)" stroke-width="1" stroke-linejoin="round" />
       {#if isActive}
-        <polygon points={hexPoints(hex.cx, hex.cy, HEX_SIZE + 2)} fill="none" stroke={PITCH_COLORS_ACTIVE[hex.pitchClass]} stroke-width="2" stroke-linejoin="round" opacity="0.5" />
+        <polygon points={hexPoints(hex.cx, hex.cy, HEX_SIZE + 2)} fill="none" stroke={hexGlowColor(hex.pitchClass)} stroke-width="2" stroke-linejoin="round" opacity="0.5" />
       {/if}
       <text x={hex.cx} y={hex.cy - 3} text-anchor="middle" dominant-baseline="middle" class="note-name" class:active-text={isActive}>{hex.noteName}</text>
       <text x={hex.cx} y={hex.cy + 8} text-anchor="middle" dominant-baseline="middle" class="note-oct" class:active-text={isActive}>{hex.noteOctave}</text>
@@ -286,7 +293,8 @@
 
   <div class="bottom-bar">
     <div class="chord-display">
-      {#if chordName}<span class="chord-name">{chordName}</span>{:else}<span class="chord-hint">touch to play</span>{/if}
+      {#if intervalDisplay}<span class="interval-text-inline">{intervalDisplay}</span>{/if}
+      {#if chordName}<span class="chord-name">{chordName}</span>{:else if !intervalDisplay}<span class="chord-hint">touch to play</span>{/if}
     </div>
     <div class="controls-group">
       <Knob value={octave} min={1} max={7} label="OCT" onChange={setOctave} />
@@ -319,15 +327,20 @@
     >
       {#each hexes as hex (hex.q * 100 + hex.r)}
         {@const isActive = activeNoteSet.has(hex.midi)}
-        {@const fillColor = isActive ? PITCH_COLORS_ACTIVE[hex.pitchClass] : PITCH_COLORS[hex.pitchClass]}
+        {@const fillColor = hexColor(hex.pitchClass, isActive)}
         <polygon points={hex.points} fill={fillColor} stroke="rgba(0,0,0,0.35)" stroke-width="0.8" stroke-linejoin="round" />
         {#if isActive}
-          <polygon points={hexPoints(hex.cx, hex.cy, HEX_SIZE + 2)} fill="none" stroke={PITCH_COLORS_ACTIVE[hex.pitchClass]} stroke-width="2" stroke-linejoin="round" opacity="0.6" />
+          <polygon points={hexPoints(hex.cx, hex.cy, HEX_SIZE + 2)} fill="none" stroke={hexGlowColor(hex.pitchClass)} stroke-width="2" stroke-linejoin="round" opacity="0.6" />
         {/if}
         <text x={hex.cx} y={hex.cy - 3} text-anchor="middle" dominant-baseline="middle" class="note-name" class:active-text={isActive}>{hex.noteName}</text>
         <text x={hex.cx} y={hex.cy + 8} text-anchor="middle" dominant-baseline="middle" class="note-oct" class:active-text={isActive}>{hex.noteOctave}</text>
       {/each}
     </svg>
+
+    <!-- Intervals — top left -->
+    <div class="fs-intervals">
+      {#if intervalDisplay}<span class="interval-text">{intervalDisplay}</span>{/if}
+    </div>
 
     <!-- Chord name — top center -->
     <div class="fs-chord">
@@ -437,6 +450,30 @@
     -webkit-tap-highlight-color: transparent;
     user-select: none;
     padding: 8px;
+  }
+
+  .fs-intervals {
+    position: absolute;
+    top: 12px;
+    left: 16px;
+    pointer-events: none;
+  }
+
+  .interval-text {
+    font-family: var(--label-font, 'Courier New', monospace);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--label-color, #a89880);
+    letter-spacing: 0.06em;
+    opacity: 0.85;
+  }
+
+  .interval-text-inline {
+    font-family: var(--label-font, 'Courier New', monospace);
+    font-size: 9px;
+    color: var(--label-color, #a89880);
+    letter-spacing: 0.04em;
+    margin-right: 6px;
   }
 
   .fs-chord {
