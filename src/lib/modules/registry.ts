@@ -47,6 +47,11 @@ import { reverbManifest } from './reverb/manifest.js';
 import { ReverbEngine } from './reverb/engine.js';
 import ReverbModule from './reverb/Module.svelte';
 
+// ── Hex Keyboard ──────────────────────────────────────────────────────────────
+import { hexKeyboardManifest } from './hex-keyboard/manifest.js';
+import { HexKeyboardEngine } from './hex-keyboard/engine.js';
+import HexKeyboardModule from './hex-keyboard/Module.svelte';
+
 // ── LFO ───────────────────────────────────────────────────────────────────────
 import { lfoManifest } from './lfo/manifest.js';
 import { LFOEngine } from './lfo/engine.js';
@@ -125,6 +130,14 @@ export const moduleRegistry = new Map<string, RegistryEntry>([
       manifest: keyboardManifest,
       createEngine: () => new KeyboardEngine(),
       component: KeyboardModule,
+    },
+  ],
+  [
+    'hex-keyboard',
+    {
+      manifest: hexKeyboardManifest,
+      createEngine: () => new HexKeyboardEngine(),
+      component: HexKeyboardModule,
     },
   ],
   [

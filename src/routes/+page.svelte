@@ -55,6 +55,144 @@
     refreshAudioState();
   }
 
+  // ── Zoom / pan state ────────────────────────────────────────────────────────
+  let zoom = $state(1);     // 1 = 100%, range 0.3 to 2
+  let panX = $state(0);     // px offset
+  let panY = $state(0);     // px offset
+
+  let rackViewport: HTMLElement | undefined = $state();
+  let rackTransformEl: HTMLElement | undefined = $state();
+
+  // Touch tracking
+  let touchState: {
+    // pinch
+    pinchInitialDist: number;
+    pinchInitialZoom: number;
+    // pan
+    panTouchId: number;
+    panStartX: number;
+    panStartY: number;
+    panStartPanX: number;
+    panStartPanY: number;
+    // double-tap
+    lastTapTime: number;
+  } = {
+    pinchInitialDist: 0,
+    pinchInitialZoom: 1,
+    panTouchId: -1,
+    panStartX: 0,
+    panStartY: 0,
+    panStartPanX: 0,
+    panStartPanY: 0,
+    lastTapTime: 0,
+  };
+  let activePinch = false;
+
+  function clampZoom(z: number): number {
+    return Math.max(0.3, Math.min(2, z));
+  }
+
+  function pinchDist(t1: Touch, t2: Touch): number {
+    const dx = t1.clientX - t2.clientX;
+    const dy = t1.clientY - t2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function onViewportTouchStart(e: TouchEvent) {
+    const target = e.target as HTMLElement;
+    const onModule = !!target.closest('.module-wrapper');
+
+    if (e.touches.length === 2) {
+      // Pinch start
+      activePinch = true;
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      touchState.pinchInitialDist = pinchDist(t1, t2);
+      touchState.pinchInitialZoom = zoom;
+      touchState.panTouchId = -1; // cancel any active single-finger pan
+    } else if (e.touches.length === 1 && !onModule) {
+      // Single-finger pan on canvas background
+      activePinch = false;
+      const t = e.touches[0];
+      touchState.panTouchId = t.identifier;
+      touchState.panStartX = t.clientX;
+      touchState.panStartY = t.clientY;
+      touchState.panStartPanX = panX;
+      touchState.panStartPanY = panY;
+
+      // Double-tap detection
+      const now = Date.now();
+      if (now - touchState.lastTapTime < 300) {
+        zoom = 1;
+        panX = 0;
+        panY = 0;
+        touchState.lastTapTime = 0;
+      } else {
+        touchState.lastTapTime = now;
+      }
+    }
+  }
+
+  function onViewportTouchMove(e: TouchEvent) {
+    e.preventDefault();
+    if (e.touches.length === 2 && activePinch) {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = pinchDist(t1, t2);
+      const newZoom = clampZoom(touchState.pinchInitialZoom * (dist / touchState.pinchInitialDist));
+
+      // Zoom toward midpoint between fingers
+      if (rackViewport) {
+        const vr = rackViewport.getBoundingClientRect();
+        const midX = ((t1.clientX + t2.clientX) / 2) - vr.left;
+        const midY = ((t1.clientY + t2.clientY) / 2) - vr.top;
+        // Point in local space stays fixed: (midX - panX) / zoom == (midX - newPanX) / newZoom
+        panX = midX - (midX - panX) * (newZoom / zoom);
+        panY = midY - (midY - panY) * (newZoom / zoom);
+      }
+      zoom = newZoom;
+    } else if (e.touches.length === 1 && !activePinch) {
+      const t = Array.from(e.touches).find(touch => touch.identifier === touchState.panTouchId);
+      if (t) {
+        panX = touchState.panStartPanX + (t.clientX - touchState.panStartX);
+        panY = touchState.panStartPanY + (t.clientY - touchState.panStartY);
+      }
+    }
+  }
+
+  function onViewportTouchEnd(e: TouchEvent) {
+    if (e.touches.length < 2) {
+      activePinch = false;
+    }
+    if (e.touches.length === 0) {
+      touchState.panTouchId = -1;
+    }
+  }
+
+  function onViewportWheel(e: WheelEvent) {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    const newZoom = clampZoom(zoom * factor);
+    if (rackViewport) {
+      const vr = rackViewport.getBoundingClientRect();
+      const cursorX = e.clientX - vr.left;
+      const cursorY = e.clientY - vr.top;
+      panX = cursorX - (cursorX - panX) * (newZoom / zoom);
+      panY = cursorY - (cursorY - panY) * (newZoom / zoom);
+    }
+    zoom = newZoom;
+  }
+
+  // ── Mobile menu ─────────────────────────────────────────────────────────────
+  let menuOpen = $state(false);
+
+  function handleOutsideClick(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.mobile-menu') && !target.closest('.header-hamburger')) {
+      menuOpen = false;
+    }
+  }
+
   // ── Cable visibility ────────────────────────────────────────────────────────
   let showCables = $state(true);
 
@@ -165,8 +303,8 @@
     if (!dragging) return;
     const dx = e.clientX - dragging.startMouseX;
     const dy = e.clientY - dragging.startMouseY;
-    const newCol = Math.round(dragging.startCol + dx / CELL);
-    const newRow = Math.round(dragging.startRow + dy / CELL);
+    const newCol = Math.round(dragging.startCol + dx / (CELL * zoom));
+    const newRow = Math.round(dragging.startRow + dy / (CELL * zoom));
     const clampedCol = Math.max(0, Math.min(GRID_COLS - dragging.w, newCol));
     const clampedRow = Math.max(0, Math.min(GRID_ROWS - dragging.h, newRow));
 
@@ -250,27 +388,30 @@
   }
 
   function onRackMouseMove(e: MouseEvent) {
-    if (!rackCanvas) return;
-    const rect = rackCanvas.getBoundingClientRect();
-    mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    if (!rackTransformEl) return;
+    const rect = rackTransformEl.getBoundingClientRect();
+    mousePos = {
+      x: (e.clientX - rect.left) / zoom,
+      y: (e.clientY - rect.top) / zoom,
+    };
   }
 
   // ── Port position tracking ──────────────────────────────────────────────────
 
-  let rackCanvas: HTMLElement | undefined = $state();
-
   function updatePortPositions() {
-    if (!rackCanvas) return;
-    const canvasRect = rackCanvas.getBoundingClientRect();
-    const jackEls = rackCanvas.querySelectorAll<HTMLElement>('[data-port-jack]');
+    if (!rackTransformEl) return;
+    const wrapperRect = rackTransformEl.getBoundingClientRect();
+    const jackEls = rackTransformEl.querySelectorAll<HTMLElement>('[data-port-jack]');
     for (const el of jackEls) {
       const mid = el.dataset.moduleId;
       const pid = el.dataset.portId;
       if (!mid || !pid) continue;
       const rect = el.getBoundingClientRect();
+      const screenX = rect.left + rect.width / 2;
+      const screenY = rect.top + rect.height / 2;
       portPositions.set(portKey(mid, pid), {
-        x: rect.left + rect.width / 2 - canvasRect.left,
-        y: rect.top + rect.height / 2 - canvasRect.top,
+        x: (screenX - wrapperRect.left) / zoom,
+        y: (screenY - wrapperRect.top) / zoom,
       });
     }
   }
@@ -278,6 +419,7 @@
   $effect(() => {
     void modules.value.length;
     void connections.value.length;
+    void zoom; void panX; void panY;
     Promise.resolve().then(updatePortPositions);
   });
 
@@ -441,6 +583,21 @@
       ],
     },
     {
+      name: 'Hex Chords',
+      description: 'Hex Keys → Sampler (warm pad) → Reverb → Output — touch isomorphic keyboard',
+      modules: [
+        { type: 'hex-keyboard', position: { x: 0, y: 0 }, params: { octave: 3 } },
+        { type: 'sampler', position: { x: 8, y: 0 }, params: { tone: 'warm-pad', attack: 0.02, release: 1.0, brightness: 0.35, volume: 0.7 } },
+        { type: 'reverb', position: { x: 12, y: 0 }, params: { size: 'large', decay: 2.5, mix: 0.3, damping: 0.4 } },
+        { type: 'output', position: { x: 15, y: 0 }, params: { volume: 0.4 } },
+      ],
+      connections: [
+        { from: { type: 'hex-keyboard', port: 'note_data' }, to: { type: 'sampler', port: 'note_data' } },
+        { from: { type: 'sampler', port: 'audio_out' }, to: { type: 'reverb', port: 'audio_in' } },
+        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
+      ],
+    },
+    {
       name: 'Soft Piano',
       description: 'Keyboard → Sampler (soft keys) → Reverb (hall) → Output',
       modules: [
@@ -524,6 +681,21 @@
     if (hash && hash.length > 1) {
       loadFromURL(hash).catch(console.warn);
     }
+
+    // Wheel and touchmove need { passive: false } so preventDefault() works
+    function attachNonPassive() {
+      if (!rackViewport) return;
+      rackViewport.addEventListener('wheel', onViewportWheel, { passive: false });
+      rackViewport.addEventListener('touchmove', onViewportTouchMove, { passive: false });
+    }
+    // rackViewport may not be bound yet on first tick
+    Promise.resolve().then(attachNonPassive);
+
+    return () => {
+      if (!rackViewport) return;
+      rackViewport.removeEventListener('wheel', onViewportWheel);
+      rackViewport.removeEventListener('touchmove', onViewportTouchMove);
+    };
   });
 
   // ── Helpers for rendering ───────────────────────────────────────────────────
@@ -548,6 +720,7 @@
   class="workspace"
   bind:this={rackContainer}
   oncontextmenu={cancelPatch}
+  onclick={handleOutsideClick}
 >
 
   <!-- ── Header ────────────────────────────────────────────────────────────── -->
@@ -557,7 +730,25 @@
       <span class="brand-sub">modular</span>
     </div>
 
-    <div class="header-controls">
+    <!-- Mobile: audio + hamburger -->
+    <div class="header-controls-mobile">
+      <button
+        class="header-btn audio-btn"
+        class:audio-on={audioRunning}
+        onclick={handleAudioToggle}
+        title="Toggle audio engine"
+      >
+        <span class="btn-led" class:led-on={audioRunning}></span>
+        {audioStateLabel}
+      </button>
+      <button
+        class="header-btn header-hamburger"
+        onclick={() => { menuOpen = !menuOpen; }}
+        title="Menu"
+      >&#9776;</button>
+    </div>
+
+    <div class="header-controls header-controls-desktop">
       <button
         class="header-btn audio-btn"
         class:audio-on={audioRunning}
@@ -616,6 +807,52 @@
         {/each}
       </select>
     </div>
+
+    <!-- Mobile dropdown menu -->
+    {#if menuOpen}
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <div class="mobile-menu" onclick={(e) => e.stopPropagation()}>
+        <button
+          class="header-btn mobile-menu-btn"
+          class:active={showCables}
+          onclick={() => { showCables = !showCables; }}
+        >Cables {showCables ? 'On' : 'Off'}</button>
+        <button
+          class="header-btn mobile-menu-btn"
+          class:active={browserOpen}
+          onclick={() => { browserOpen = !browserOpen; menuOpen = false; }}
+        >Modules</button>
+        <button class="header-btn mobile-menu-btn" onclick={() => { openSave(); menuOpen = false; }}>Save</button>
+        <button class="header-btn mobile-menu-btn" onclick={() => { openLoad(); menuOpen = false; }}>Load</button>
+        <button class="header-btn mobile-menu-btn" onclick={() => { handleShare(); menuOpen = false; }}>Share</button>
+        <select
+          class="theme-select mobile-menu-select"
+          onchange={(e) => {
+            const sel = e.currentTarget as HTMLSelectElement;
+            const idx = parseInt(sel.value);
+            if (!isNaN(idx)) {
+              loadPreset(presets[idx]);
+              sel.value = '';
+              menuOpen = false;
+            }
+          }}
+          title="Load a preset patch"
+        >
+          <option value="" disabled selected>Presets</option>
+          {#each presets as preset, i}
+            <option value={i}>{preset.name}</option>
+          {/each}
+        </select>
+        <select class="theme-select mobile-menu-select" onchange={(e) => { handleThemeChange(e); menuOpen = false; }} title="Select theme">
+          {#each themes as theme (theme.id)}
+            <option value={theme.id} selected={$activeTheme.id === theme.id}>
+              {theme.name}
+            </option>
+          {/each}
+        </select>
+      </div>
+    {/if}
   </header>
 
   <!-- ── Main area ─────────────────────────────────────────────────────────── -->
@@ -645,107 +882,117 @@
       </aside>
     {/if}
 
-    <!-- Rack canvas with grid -->
+    <!-- Rack viewport (clips overflow, handles zoom/pan gestures) -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="rack-canvas"
-      bind:this={rackCanvas}
+      class="rack-viewport"
+      bind:this={rackViewport}
       onpointermove={onCanvasPointerMove}
       onpointerup={onCanvasPointerUp}
       onmousemove={onRackMouseMove}
-      style:width="{GRID_COLS * CELL}px"
-      style:height="{GRID_ROWS * CELL}px"
+      ontouchstart={onViewportTouchStart}
+      ontouchend={onViewportTouchEnd}
     >
+      <!-- Transform wrapper — everything inside scales/pans together -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div
+        class="rack-canvas rack-transform"
+        bind:this={rackTransformEl}
+        style:transform="translate({panX}px, {panY}px) scale({zoom})"
+        style:width="{GRID_COLS * CELL}px"
+        style:height="{GRID_ROWS * CELL}px"
+      >
 
-      <!-- Grid lines -->
-      <svg class="grid-lines" width={GRID_COLS * CELL} height={GRID_ROWS * CELL}>
-        {#each Array(GRID_COLS + 1) as _, i}
-          <line
-            x1={i * CELL} y1={0}
-            x2={i * CELL} y2={GRID_ROWS * CELL}
-            stroke="var(--grid-line, rgba(90, 74, 58, 0.12))"
-            stroke-width="1"
-          />
-        {/each}
-        {#each Array(GRID_ROWS + 1) as _, i}
-          <line
-            x1={0} y1={i * CELL}
-            x2={GRID_COLS * CELL} y2={i * CELL}
-            stroke="var(--grid-line, rgba(90, 74, 58, 0.12))"
-            stroke-width="1"
-          />
-        {/each}
-      </svg>
-
-      <!-- Drag ghost (shows target position while dragging) -->
-      {#if dragging}
-        <div
-          class="drag-ghost"
-          class:invalid={!dragging.valid}
-          style:left="{dragging.currentCol * CELL}px"
-          style:top="{dragging.currentRow * CELL}px"
-          style:width="{dragging.w * CELL}px"
-          style:height="{dragging.h * CELL}px"
-        ></div>
-      {/if}
-
-      <!-- Module instances -->
-      {#each modules.value as instance (instance.id)}
-        {@const entry = moduleRegistry.get(instance.type)}
-        {@const pos = modulePixelPos(instance)}
-        {#if entry}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div
-            class="module-wrapper"
-            class:dragging={dragging?.moduleId === instance.id}
-            style:left="{pos.left}px"
-            style:top="{pos.top}px"
-            style:width="{instance.size.w * CELL}px"
-            style:height="{instance.size.h * CELL}px"
-            data-module-id={instance.id}
-            onpointerdown={(e) => onModulePointerDown(e, instance)}
-          >
-            <entry.component
-              engine={instance.engine}
-              moduleId={instance.id}
-              connectedPorts={getConnectedPorts(instance.id)}
-              onPortConnect={(portId: string) => handlePortConnect(instance.id, portId)}
+        <!-- Grid lines -->
+        <svg class="grid-lines" width={GRID_COLS * CELL} height={GRID_ROWS * CELL}>
+          {#each Array(GRID_COLS + 1) as _, i}
+            <line
+              x1={i * CELL} y1={0}
+              x2={i * CELL} y2={GRID_ROWS * CELL}
+              stroke="var(--grid-line, rgba(90, 74, 58, 0.12))"
+              stroke-width="1"
             />
+          {/each}
+          {#each Array(GRID_ROWS + 1) as _, i}
+            <line
+              x1={0} y1={i * CELL}
+              x2={GRID_COLS * CELL} y2={i * CELL}
+              stroke="var(--grid-line, rgba(90, 74, 58, 0.12))"
+              stroke-width="1"
+            />
+          {/each}
+        </svg>
 
-            <button
-              class="module-remove"
-              title="Remove module"
-              onclick={() => removeModule(instance.id)}
-            >&times;</button>
+        <!-- Drag ghost (shows target position while dragging) -->
+        {#if dragging}
+          <div
+            class="drag-ghost"
+            class:invalid={!dragging.valid}
+            style:left="{dragging.currentCol * CELL}px"
+            style:top="{dragging.currentRow * CELL}px"
+            style:width="{dragging.w * CELL}px"
+            style:height="{dragging.h * CELL}px"
+          ></div>
+        {/if}
+
+        <!-- Module instances -->
+        {#each modules.value as instance (instance.id)}
+          {@const entry = moduleRegistry.get(instance.type)}
+          {@const pos = modulePixelPos(instance)}
+          {#if entry}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+              class="module-wrapper"
+              class:dragging={dragging?.moduleId === instance.id}
+              style:left="{pos.left}px"
+              style:top="{pos.top}px"
+              style:width="{instance.size.w * CELL}px"
+              style:height="{instance.size.h * CELL}px"
+              data-module-id={instance.id}
+              onpointerdown={(e) => onModulePointerDown(e, instance)}
+            >
+              <entry.component
+                engine={instance.engine}
+                moduleId={instance.id}
+                connectedPorts={getConnectedPorts(instance.id)}
+                onPortConnect={(portId: string) => handlePortConnect(instance.id, portId)}
+              />
+
+              <button
+                class="module-remove"
+                title="Remove module"
+                onclick={() => removeModule(instance.id)}
+              >&times;</button>
+            </div>
+          {/if}
+        {/each}
+
+        <!-- Cable SVG overlays -->
+        {#if showCables}
+          {#each connections.value as conn (conn.id)}
+            {@const ep = cableEndpoints(conn)}
+            {#if ep}
+              <PatchCable x1={ep.x1} y1={ep.y1} x2={ep.x2} y2={ep.y2} signalActive={true} />
+            {/if}
+          {/each}
+
+          {#if pendingPort}
+            {@const pep = pendingCableEndpoints()}
+            {#if pep}
+              <PatchCable x1={pep.x1} y1={pep.y1} x2={pep.x2} y2={pep.y2} signalActive={false} />
+            {/if}
+          {/if}
+        {/if}
+
+        <!-- Empty state hint -->
+        {#if modules.value.length === 0}
+          <div class="empty-hint">
+            <p>Select a module from the panel to place it on the grid.</p>
+            <p class="empty-hint-sub">Modules snap to the grid. Click ports to patch cables.</p>
           </div>
         {/if}
-      {/each}
 
-      <!-- Cable SVG overlays -->
-      {#if showCables}
-        {#each connections.value as conn (conn.id)}
-          {@const ep = cableEndpoints(conn)}
-          {#if ep}
-            <PatchCable x1={ep.x1} y1={ep.y1} x2={ep.x2} y2={ep.y2} signalActive={true} />
-          {/if}
-        {/each}
-
-        {#if pendingPort}
-          {@const pep = pendingCableEndpoints()}
-          {#if pep}
-            <PatchCable x1={pep.x1} y1={pep.y1} x2={pep.x2} y2={pep.y2} signalActive={false} />
-          {/if}
-        {/if}
-      {/if}
-
-      <!-- Empty state hint -->
-      {#if modules.value.length === 0}
-        <div class="empty-hint">
-          <p>Select a module from the panel to place it on the grid.</p>
-          <p class="empty-hint-sub">Modules snap to the grid. Click ports to patch cables.</p>
-        </div>
-      {/if}
-
+      </div>
     </div>
   </div>
 
@@ -825,6 +1072,7 @@
     flex-shrink: 0;
     z-index: 10;
     gap: 12px;
+    position: relative;
   }
 
   .header-brand { display: flex; align-items: baseline; gap: 8px; }
@@ -839,6 +1087,57 @@
   }
 
   .header-controls { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+
+  /* Mobile-only controls row (audio + hamburger) */
+  .header-controls-mobile {
+    display: none;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Hamburger button */
+  .header-hamburger { font-size: 16px; padding: 4px 10px; }
+
+  /* Mobile dropdown menu */
+  .mobile-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: rgba(0, 0, 0, 0.95);
+    border: 1px solid rgba(90, 74, 58, 0.4);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 50;
+    min-width: 180px;
+  }
+
+  .mobile-menu-btn { width: 100%; justify-content: flex-start; }
+  .mobile-menu-select { width: 100%; }
+
+  @media (max-width: 640px) {
+    .header-controls-desktop { display: none !important; }
+    .header-controls-mobile { display: flex; }
+    .module-browser {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      width: 100%;
+      height: 40vh;
+      border-right: none;
+      border-top: 1px solid rgba(90, 74, 58, 0.4);
+      z-index: 20;
+    }
+  }
+
+  @media (min-width: 641px) {
+    .header-controls-mobile { display: none !important; }
+    .header-controls-desktop { display: flex; }
+  }
 
   .header-btn {
     font-family: var(--label-font, 'Courier New', monospace);
@@ -877,7 +1176,7 @@
   .theme-select option { background: #1a1210; }
 
   /* ── Main area ────────────────────────────────────────────────────────────── */
-  .main { display: flex; flex: 1; overflow: auto; }
+  .main { display: flex; flex: 1; overflow: hidden; }
 
   /* ── Module browser ───────────────────────────────────────────────────────── */
   .module-browser {
@@ -922,11 +1221,25 @@
     opacity: 0.7; line-height: 1.3; white-space: normal;
   }
 
+  /* ── Rack viewport ────────────────────────────────────────────────────────── */
+  .rack-viewport {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    touch-action: none;
+  }
+
   /* ── Rack canvas (grid) ───────────────────────────────────────────────────── */
   .rack-canvas {
     position: relative;
     cursor: default;
-    margin: 0 auto;
+  }
+
+  .rack-transform {
+    transform-origin: 0 0;
+    position: absolute;
+    top: 0;
+    left: 0;
   }
 
   .grid-lines {
