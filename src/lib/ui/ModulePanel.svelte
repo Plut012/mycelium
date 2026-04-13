@@ -48,6 +48,7 @@
     padding-bottom: 4px;
     border-bottom: 1px solid var(--panel-border-color, #3a2e24);
     user-select: none;
+    cursor: grab;
     flex-shrink: 0;
   }
 

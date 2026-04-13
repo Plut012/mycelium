@@ -275,16 +275,9 @@
   } | null = $state(null);
 
   function onModulePointerDown(e: PointerEvent, instance: ModuleInstance) {
+    // Only drag from the title bar — everything else is interactive
     const target = e.target as HTMLElement;
-    if (
-      target.tagName === 'BUTTON' ||
-      target.tagName === 'SELECT' ||
-      target.tagName === 'INPUT' ||
-      target.closest('button') ||
-      target.closest('select')
-    ) {
-      return;
-    }
+    if (!target.closest('.module-title')) return;
 
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);

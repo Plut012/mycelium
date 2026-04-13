@@ -44,8 +44,9 @@ export class SamplerEngine extends ModuleEngine {
   private brightness = 0.3;
   private volume = 0.6;
 
-  // Instrument packs
-  private loadedInstrument: InstrumentPack | null = null;
+  // Instrument packs — keyed by pack id so we can switch between them
+  private loadedInstruments = new Map<string, InstrumentPack>();
+  private activeInstrumentId: string | null = null;
   private instrumentLoading = false;
   private instrumentLoadProgress = 0;
 
@@ -82,7 +83,8 @@ export class SamplerEngine extends ModuleEngine {
       await preloadInstrument(this.ctx, pack, (loaded, total) => {
         this.instrumentLoadProgress = loaded / total;
       });
-      this.loadedInstrument = pack;
+      this.loadedInstruments.set(pack.id, pack);
+      this.activeInstrumentId = pack.id;
       this.tone = pack.id;
     } finally {
       this.instrumentLoading = false;
@@ -98,7 +100,11 @@ export class SamplerEngine extends ModuleEngine {
   }
 
   getLoadedInstrumentId(): string | null {
-    return this.loadedInstrument?.id ?? null;
+    return this.activeInstrumentId;
+  }
+
+  getLoadedInstrumentIds(): string[] {
+    return [...this.loadedInstruments.keys()];
   }
 
   // ── Note handling ───────────────────────────────────────────────────────
@@ -140,12 +146,12 @@ export class SamplerEngine extends ModuleEngine {
     if (this.isSynthPreset(this.tone)) {
       const freq = 440 * Math.pow(2, (midi - 69) / 12);
       voice = this.buildSynthVoice(freq, now);
-    } else if (this.loadedInstrument) {
-      const sampleVoice = this.buildSampleVoice(midi, now);
+    } else {
+      const pack = this.loadedInstruments.get(this.tone);
+      if (!pack) return;
+      const sampleVoice = this.buildSampleVoice(midi, now, pack);
       if (!sampleVoice) return;
       voice = sampleVoice;
-    } else {
-      return;
     }
 
     voice.envelope.connect(this.masterGain);
@@ -155,10 +161,8 @@ export class SamplerEngine extends ModuleEngine {
 
   // ── Sample-based voice ──────────────────────────────────────────────────
 
-  private buildSampleVoice(midi: number, now: number): SampleVoice | null {
-    if (!this.ctx || !this.loadedInstrument) return null;
-
-    const pack = this.loadedInstrument;
+  private buildSampleVoice(midi: number, now: number, pack: InstrumentPack): SampleVoice | null {
+    if (!this.ctx) return null;
 
     // Check range
     if (midi < pack.range.low || midi > pack.range.high) return null;
@@ -385,6 +389,9 @@ export class SamplerEngine extends ModuleEngine {
     switch (name) {
       case 'tone':
         this.tone = value as ToneSource;
+        if (!this.isSynthPreset(this.tone)) {
+          this.activeInstrumentId = this.tone;
+        }
         break;
       case 'attack':
         this.attack = value as number;

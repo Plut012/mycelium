@@ -19,6 +19,7 @@
   let volume = $state(0.6);
   let loading = $state(false);
   let loadProgress = $state(0);
+  let loadError = $state<string | null>(null);
   let loadedInstruments = $state<Set<string>>(new Set());
 
   const synthPresets: { value: TonePreset; label: string }[] = [
@@ -51,8 +52,10 @@
   function pollLoading() {
     loading = engine.isInstrumentLoading();
     loadProgress = engine.getLoadProgress();
-    const lid = engine.getLoadedInstrumentId();
-    if (lid) loadedInstruments.add(lid);
+    const ids = engine.getLoadedInstrumentIds();
+    if (ids.length > 0) {
+      loadedInstruments = new Set(ids);
+    }
     pollFrame = requestAnimationFrame(pollLoading);
   }
 
@@ -65,6 +68,8 @@
     if (loading) return;
     const pack = instrumentPacks[id];
     if (!pack) return;
+
+    loadError = null;
 
     if (loadedInstruments.has(id)) {
       // Already loaded — just switch to it
@@ -80,6 +85,8 @@
       tone = id;
     } catch (e) {
       console.warn(`Failed to load ${id}:`, e);
+      loadError = `Failed to load ${pack.name.split(' ').pop()}`;
+      setTimeout(() => { loadError = null; }, 3000);
     }
     loading = false;
   }
@@ -107,6 +114,10 @@
         <div class="load-fill" style:width="{loadProgress * 100}%"></div>
         <span class="load-label">Loading {Math.round(loadProgress * 100)}%</span>
       </div>
+    </div>
+  {:else if loadError}
+    <div class="instrument-row">
+      <span class="load-error">{loadError}</span>
     </div>
   {:else}
     <div class="tone-row">
@@ -197,35 +208,22 @@
     padding: 0 4px;
   }
 
-  .instrument-btn {
+  .tone-btn.loaded {
+    border-style: solid;
+    opacity: 0.8;
+  }
+
+  .tone-btn.loaded:not(.active) {
+    border-color: var(--port-stroke, #5a4a3a);
+  }
+
+  .load-error {
     font-family: var(--label-font, 'Courier New', monospace);
-    font-size: 9px;
-    color: var(--label-color, #a89880);
-    background: rgba(26, 18, 16, 0.6);
-    border: 1px solid var(--port-stroke, #5a4a3a);
-    border-radius: 2px;
-    padding: 3px 12px;
-    cursor: pointer;
+    font-size: 8px;
+    color: #ff6b6b;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    transition: border-color 0.15s, color 0.15s, background 0.15s;
-    width: 100%;
-  }
-
-  .instrument-btn:hover {
-    border-color: var(--knob-indicator, #7fba5c);
-    color: var(--knob-indicator, #7fba5c);
-  }
-
-  .instrument-btn.loaded {
-    border-color: var(--port-stroke, #5a4a3a);
-    color: var(--label-color, #a89880);
-  }
-
-  .instrument-btn.active {
-    border-color: var(--knob-indicator, #7fba5c);
-    color: var(--knob-indicator, #7fba5c);
-    background: rgba(127, 186, 92, 0.1);
+    text-align: center;
   }
 
   .load-bar {
