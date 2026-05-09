@@ -29,7 +29,7 @@ export async function loadSample(ctx: AudioContext, url: string): Promise<AudioB
   // Fetch and decode
   const promise = (async () => {
     const response = await fetch(url);
-    if (!response.ok) {
+    if (!response.ok && !url.startsWith('data:')) {
       throw new Error(`Failed to load sample: ${url} (${response.status})`);
     }
     const arrayBuffer = await response.arrayBuffer();

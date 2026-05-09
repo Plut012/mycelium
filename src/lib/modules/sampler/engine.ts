@@ -3,6 +3,7 @@ import type { SporePayload } from '$lib/engine/Port.js';
 import type { NoteSpore } from '$lib/modules/keyboard/engine.js';
 import type { InstrumentPack } from '$lib/instruments/types.js';
 import { loadSample, findBestSample, selectVelocityLayer, preloadInstrument, getCachedBuffer } from '$lib/instruments/loader.js';
+import { instrumentPrepare } from '$lib/instruments/index.js';
 
 export type TonePreset = 'warm-pad' | 'nylon' | 'bell' | 'soft-keys';
 
@@ -80,6 +81,11 @@ export class SamplerEngine extends ModuleEngine {
     this.instrumentLoadProgress = 0;
 
     try {
+      // Some instruments (soundfont-based) need async preparation
+      // to fetch and parse their sample data before preloading
+      const prepare = instrumentPrepare[pack.id];
+      if (prepare) await prepare();
+
       await preloadInstrument(this.ctx, pack, (loaded, total) => {
         this.instrumentLoadProgress = loaded / total;
       });

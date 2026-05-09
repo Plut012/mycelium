@@ -62,6 +62,16 @@ import { envelopeManifest } from './envelope/manifest.js';
 import { EnvelopeEngine } from './envelope/engine.js';
 import EnvelopeModule from './envelope/Module.svelte';
 
+// ── Scroll ───────────────────────────────────────────────────────────────────
+import { scrollManifest } from './scroll/manifest.js';
+import { ScrollEngine } from './scroll/engine.js';
+import ScrollModule from './scroll/Module.svelte';
+
+// ── Tape ─────────────────────────────────────────────────────────────────────
+import { tapeManifest } from './tape/manifest.js';
+import { TapeEngine } from './tape/engine.js';
+import TapeModule from './tape/Module.svelte';
+
 // ── Registry entry type ───────────────────────────────────────────────────────
 
 export interface RegistryEntry {
@@ -170,6 +180,22 @@ export const moduleRegistry = new Map<string, RegistryEntry>([
       manifest: envelopeManifest,
       createEngine: () => new EnvelopeEngine(),
       component: EnvelopeModule,
+    },
+  ],
+  [
+    'scroll',
+    {
+      manifest: scrollManifest,
+      createEngine: () => new ScrollEngine(),
+      component: ScrollModule,
+    },
+  ],
+  [
+    'tape',
+    {
+      manifest: tapeManifest,
+      createEngine: () => new TapeEngine(),
+      component: TapeModule,
     },
   ],
 ]);

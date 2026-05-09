@@ -535,6 +535,25 @@
       ],
     },
     {
+      name: 'Tape Lounge',
+      description: 'Tape → Filter → Delay → Reverb → Output — warm vinyl lounge with slow filter drift',
+      modules: [
+        { type: 'tape', position: { x: 0, y: 0 }, params: { volume: 0.8, speed: 1.0, loop: 1 } },
+        { type: 'filter', position: { x: 0, y: 3 }, params: { frequency: 3500, Q: 0.8, type: 'lowpass' } },
+        { type: 'lfo', position: { x: 3, y: 3 }, params: { rate: 0.15, depth: 0.3, waveform: 'sine' } },
+        { type: 'delay', position: { x: 6, y: 3 }, params: { delayTime: 0.4, feedback: 0.2, mix: 0.15 } },
+        { type: 'reverb', position: { x: 9, y: 3 }, params: { size: 'hall', decay: 3.5, mix: 0.3, damping: 0.5 } },
+        { type: 'output', position: { x: 12, y: 3 }, params: { volume: 0.5 } },
+      ],
+      connections: [
+        { from: { type: 'tape', port: 'audio_out' }, to: { type: 'filter', port: 'audio_in' } },
+        { from: { type: 'lfo', port: 'cv_out' }, to: { type: 'filter', port: 'cutoff_cv' } },
+        { from: { type: 'filter', port: 'audio_out' }, to: { type: 'delay', port: 'audio_in' } },
+        { from: { type: 'delay', port: 'audio_out' }, to: { type: 'reverb', port: 'audio_in' } },
+        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
+      ],
+    },
+    {
       name: 'Warm Chords',
       description: 'Keyboard → Sampler (nylon) → Reverb → Output — beautiful for exploring chords',
       modules: [
@@ -591,6 +610,23 @@
       connections: [
         { from: { type: 'hex-keyboard', port: 'note_data' }, to: { type: 'sampler', port: 'note_data' } },
         { from: { type: 'sampler', port: 'audio_out' }, to: { type: 'reverb', port: 'audio_in' } },
+        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
+      ],
+    },
+    {
+      name: 'Jukebox',
+      description: 'Scroll → Sampler (Grand Piano) → Delay → Reverb → Output — auto-playing song library',
+      modules: [
+        { type: 'scroll', position: { x: 0, y: 0 }, params: { tempo: 100, transpose: 0, loop: 1 } },
+        { type: 'sampler', position: { x: 3, y: 0 }, params: { attack: 0.005, release: 1.5, brightness: 0.5, volume: 0.7 }, instrument: 'salamander-piano' },
+        { type: 'delay', position: { x: 7, y: 0 }, params: { delayTime: 0.35, feedback: 0.25, mix: 0.2 } },
+        { type: 'reverb', position: { x: 10, y: 0 }, params: { size: 'large', decay: 2.5, mix: 0.3, damping: 0.4 } },
+        { type: 'output', position: { x: 13, y: 0 }, params: { volume: 0.5 } },
+      ],
+      connections: [
+        { from: { type: 'scroll', port: 'note_data' }, to: { type: 'sampler', port: 'note_data' } },
+        { from: { type: 'sampler', port: 'audio_out' }, to: { type: 'delay', port: 'audio_in' } },
+        { from: { type: 'delay', port: 'audio_out' }, to: { type: 'reverb', port: 'audio_in' } },
         { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
       ],
     },

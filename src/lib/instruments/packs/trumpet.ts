@@ -5,25 +5,11 @@
  * Source: https://github.com/gleitz/midi-js-soundfonts
  */
 
-import type { InstrumentPack, SampleMapping } from '../types.js';
+import type { InstrumentPack } from '../types.js';
+import { buildSoundfontLayer } from '../soundfont-loader.js';
 
-const NOTE_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
-
-function midiToNoteName(midi: number): string {
-  const octave = Math.floor(midi / 12) - 1;
-  return `${NOTE_NAMES[midi % 12]}${octave}`;
-}
-
-const BASE_URL = 'https://gleitz.github.io/midi-js-soundfonts/MusyngKite/trumpet-ogg';
-
-function buildLayer(): SampleMapping[] {
-  const mappings: SampleMapping[] = [];
-  // Trumpet range: E3 (MIDI 52) to C6 (MIDI 84)
-  for (let midi = 52; midi <= 84; midi += 3) {
-    mappings.push({ midi, url: `${BASE_URL}/${midiToNoteName(midi)}.ogg` });
-  }
-  return mappings;
-}
+const JS_URL = 'https://gleitz.github.io/midi-js-soundfonts/MusyngKite/trumpet-ogg.js';
+const RANGE = { low: 52, high: 84 }; // E3 to C6
 
 export const trumpet: InstrumentPack = {
   id: 'trumpet',
@@ -31,6 +17,12 @@ export const trumpet: InstrumentPack = {
   description: 'Bright, clear brass — cuts through with clarity.',
   category: 'brass',
   license: 'MIT / Free',
-  velocityLayers: [buildLayer()],
-  range: { low: 52, high: 84 },
+  velocityLayers: [],
+  range: RANGE,
 };
+
+export async function prepareTrumpet(): Promise<void> {
+  if (trumpet.velocityLayers.length > 0) return;
+  const layer = await buildSoundfontLayer(JS_URL, RANGE.low, RANGE.high);
+  trumpet.velocityLayers = [layer];
+}

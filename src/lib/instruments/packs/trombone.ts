@@ -5,25 +5,11 @@
  * Source: https://github.com/gleitz/midi-js-soundfonts
  */
 
-import type { InstrumentPack, SampleMapping } from '../types.js';
+import type { InstrumentPack } from '../types.js';
+import { buildSoundfontLayer } from '../soundfont-loader.js';
 
-const NOTE_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
-
-function midiToNoteName(midi: number): string {
-  const octave = Math.floor(midi / 12) - 1;
-  return `${NOTE_NAMES[midi % 12]}${octave}`;
-}
-
-const BASE_URL = 'https://gleitz.github.io/midi-js-soundfonts/MusyngKite/trombone-ogg';
-
-function buildLayer(): SampleMapping[] {
-  const mappings: SampleMapping[] = [];
-  // Trombone range: E2 (MIDI 40) to Bb4 (MIDI 70)
-  for (let midi = 40; midi <= 70; midi += 3) {
-    mappings.push({ midi, url: `${BASE_URL}/${midiToNoteName(midi)}.ogg` });
-  }
-  return mappings;
-}
+const JS_URL = 'https://gleitz.github.io/midi-js-soundfonts/MusyngKite/trombone-ogg.js';
+const RANGE = { low: 40, high: 70 }; // E2 to Bb4
 
 export const trombone: InstrumentPack = {
   id: 'trombone',
@@ -31,6 +17,12 @@ export const trombone: InstrumentPack = {
   description: 'Rich, warm low brass — deep and expressive.',
   category: 'brass',
   license: 'MIT / Free',
-  velocityLayers: [buildLayer()],
-  range: { low: 40, high: 70 },
+  velocityLayers: [],
+  range: RANGE,
 };
+
+export async function prepareTrombone(): Promise<void> {
+  if (trombone.velocityLayers.length > 0) return;
+  const layer = await buildSoundfontLayer(JS_URL, RANGE.low, RANGE.high);
+  trombone.velocityLayers = [layer];
+}

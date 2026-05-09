@@ -1,15 +1,15 @@
 /**
  * Salamander Grand Piano — Yamaha C5 Grand, CC-BY 3.0 / Public Domain.
  *
- * Uses web-optimized OGG samples from @audio-samples packages on jsdelivr CDN.
+ * Uses MP3 samples from the Tone.js audio CDN on GitHub Pages.
  * Sampled every minor third (3 semitones) across the full 88-key range.
- * We load 3 velocity layers for a good balance of realism vs. load time.
+ * Single velocity layer (medium) for fast loading.
  */
 
 import type { InstrumentPack, SampleMapping } from '../types.js';
 
-// Note name helpers
-const NOTE_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+// Tone.js salamander uses sharps written as 's' (e.g., Fs4, Ds3)
+const NOTE_NAMES = ['C', 'Cs', 'D', 'Ds', 'E', 'F', 'Fs', 'G', 'Gs', 'A', 'As', 'B'];
 
 function midiToNoteName(midi: number): string {
   const octave = Math.floor(midi / 12) - 1;
@@ -17,43 +17,36 @@ function midiToNoteName(midi: number): string {
   return `${note}${octave}`;
 }
 
-/**
- * Build sample mappings for a velocity layer.
- * Salamander samples every minor third (3 semitones) from A0 (MIDI 21) to C8 (MIDI 108).
- */
-function buildLayer(velocityNum: number): SampleMapping[] {
-  const baseUrl = `https://cdn.jsdelivr.net/npm/@audio-samples/piano-velocity${velocityNum}/audio`;
-  const mappings: SampleMapping[] = [];
+const BASE_URL = 'https://tonejs.github.io/audio/salamander';
 
-  // Sample every 3 semitones from A0 (21) to C8 (108)
+/**
+ * Build sample mappings.
+ * Salamander has samples every minor 3rd: A, C, Ds, Fs from A0 to C8.
+ */
+function buildLayer(): SampleMapping[] {
+  const mappings: SampleMapping[] = [];
+  // The available notes follow the pattern: A, C, Ds, Fs across octaves
   for (let midi = 21; midi <= 108; midi += 3) {
     const noteName = midiToNoteName(midi);
     mappings.push({
       midi,
-      url: `${baseUrl}/${noteName}.ogg`,
+      url: `${BASE_URL}/${noteName}.mp3`,
     });
   }
-
   return mappings;
 }
 
 /**
  * Salamander Grand Piano instrument pack.
  *
- * 3 velocity layers (soft, medium, loud) for expressive playing.
- * ~30 samples per layer × 3 layers = ~90 samples total.
- * Estimated total size: ~8-12MB (loaded on demand from CDN).
+ * Single velocity layer for fast loading (~30 samples, ~3-5MB).
  */
 export const salamanderPiano: InstrumentPack = {
   id: 'salamander-piano',
   name: 'Salamander Grand Piano',
-  description: 'Yamaha C5 Grand Piano — warm, rich, expressive. 88 keys, 3 velocity layers.',
+  description: 'Yamaha C5 Grand Piano — warm, rich, expressive. 88 keys.',
   category: 'piano',
   license: 'CC-BY 3.0 / Public Domain',
-  velocityLayers: [
-    buildLayer(4),   // soft (velocity layer 4 of 16)
-    buildLayer(8),   // medium (velocity layer 8 of 16)
-    buildLayer(13),  // loud (velocity layer 13 of 16)
-  ],
+  velocityLayers: [buildLayer()],
   range: { low: 21, high: 108 },  // A0 to C8
 };
