@@ -203,6 +203,58 @@ export class TapeEngine extends ModuleEngine {
     this.notifyStateChange();
   }
 
+  /**
+   * Load an audio file from a local dev-server path (e.g., 'music/Artist/track.flac').
+   * Used by the library browser in dev mode.
+   */
+  async loadFromPath(path: string, displayTitle: string): Promise<void> {
+    if (!this.ctx) return;
+
+    const wasPlaying = this.playing;
+    this.stop();
+
+    this.loading = true;
+    this.loadProgress = 0;
+    this.notifyStateChange();
+
+    try {
+      // Fetch from Vite dev server (path is relative to project root)
+      const response = await fetch(`/${path}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const arrayBuffer = await response.arrayBuffer();
+      this.audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+      this.peaks = computePeaks(this.audioBuffer, WAVEFORM_BUCKETS);
+
+      // Add to track list if not already there
+      const existingIdx = this.tracks.findIndex(t => t.url === path);
+      if (existingIdx >= 0) {
+        this.selectedIndex = existingIdx;
+      } else {
+        const parts = displayTitle.split(' - ');
+        this.tracks.push({
+          id: `local-${Date.now()}`,
+          title: parts.length > 1 ? parts[1] : displayTitle,
+          artist: parts.length > 1 ? parts[0] : 'Library',
+          url: path,
+          builtIn: false,
+        });
+        this.selectedIndex = this.tracks.length - 1;
+      }
+
+      this.startOffset = 0;
+      this.loadProgress = 1;
+      if (wasPlaying) this.play();
+    } catch (e) {
+      console.warn('Tape: failed to load from path:', e);
+      this.audioBuffer = null;
+      this.peaks = null;
+    } finally {
+      this.loading = false;
+      this.notifyStateChange();
+    }
+  }
+
   getPlaybackPosition(): number {
     if (!this.audioBuffer) return 0;
     const duration = this.audioBuffer.duration;

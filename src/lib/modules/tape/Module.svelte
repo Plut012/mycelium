@@ -2,6 +2,7 @@
   import { Knob, ModulePanel, PortJack } from '$lib/ui';
   import type { TapeEngine } from './engine.js';
   import type { TapeTrack } from './tracks.js';
+  import { fetchMusicLibrary, getArtists, getTracks, type LibraryEntry } from './music-library.js';
 
   type Props = {
     engine: TapeEngine;
@@ -23,6 +24,32 @@
   let loading = $state(false);
   let loadProgress = $state(0);
   let dragging = $state(false);
+
+  // Library browser
+  let libraryOpen = $state(false);
+  let library = $state<LibraryEntry[]>([]);
+  let libraryArtists = $state<string[]>([]);
+  let selectedArtist = $state<string | null>(null);
+  let artistTracks = $state<LibraryEntry[]>([]);
+  let libraryAvailable = $state(false);
+
+  // Load library index
+  fetchMusicLibrary().then(entries => {
+    library = entries;
+    libraryArtists = getArtists(entries);
+    libraryAvailable = entries.length > 0;
+  });
+
+  function selectArtist(artist: string) {
+    selectedArtist = artist;
+    artistTracks = getTracks(library, artist);
+  }
+
+  async function loadLibraryTrack(entry: LibraryEntry) {
+    libraryOpen = false;
+    await engine.loadFromPath(entry.path, `${entry.artist} - ${entry.title}`);
+    syncState();
+  }
 
   let waveformCanvas: HTMLCanvasElement | undefined = $state();
   const CANVAS_WIDTH = 540;
@@ -248,7 +275,39 @@
         </button>
       {/each}
       <button class="track-btn import-btn" onclick={openFilePicker} title="Import audio file">+</button>
+      <button
+        class="track-btn library-btn"
+        class:active={libraryOpen}
+        onclick={() => { if (libraryAvailable) { libraryOpen = !libraryOpen; selectedArtist = null; } else { openFilePicker(); } }}
+        title={libraryAvailable ? 'Browse local library' : 'Select audio file'}
+      >&#9835;</button>
     </div>
+
+    <!-- Library browser dropdown -->
+    {#if libraryOpen}
+      <div class="library-dropdown">
+        {#if !selectedArtist}
+          <div class="library-list">
+            {#each libraryArtists as artist}
+              <button class="library-item" onclick={() => selectArtist(artist)}>
+                {artist} <span class="library-arrow">&#9654;</span>
+              </button>
+            {/each}
+          </div>
+        {:else}
+          <div class="library-list">
+            <button class="library-item library-back" onclick={() => { selectedArtist = null; }}>
+              &#9664; {selectedArtist}
+            </button>
+            {#each artistTracks as entry}
+              <button class="library-item" onclick={() => loadLibraryTrack(entry)}>
+                {entry.title}
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {/if}
 
     <!-- Waveform display -->
     <div class="waveform-container">
@@ -350,9 +409,80 @@
     padding: 1px 4px;
   }
 
-  .import-btn:hover {
+  .import-btn:hover,
+  .library-btn:hover {
     color: var(--knob-indicator, #7fba5c);
     border-color: var(--knob-indicator, #7fba5c);
+  }
+
+  .library-btn {
+    font-size: 9px;
+    min-width: 18px;
+    padding: 1px 4px;
+  }
+
+  .library-btn.active {
+    color: var(--knob-indicator, #7fba5c);
+    border-color: var(--knob-indicator, #7fba5c);
+    box-shadow: 0 0 4px var(--knob-indicator, #7fba5c);
+  }
+
+  /* Library dropdown */
+  .library-dropdown {
+    position: absolute;
+    top: 28px;
+    left: 6px;
+    right: 6px;
+    z-index: 10;
+    background: var(--panel-bg, linear-gradient(135deg, #2a1f1a 0%, #3d2e24 100%));
+    border: 1px solid var(--panel-border, #5a4a3a);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+  }
+
+  .library-list {
+    max-height: 110px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--panel-border, #5a4a3a) transparent;
+  }
+
+  .library-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 3px 8px;
+    font-family: var(--label-font, 'Courier New', monospace);
+    font-size: 8px;
+    color: var(--label-color, #a89880);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(90, 74, 58, 0.3);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .library-item:hover {
+    background: rgba(127, 186, 92, 0.08);
+    color: var(--knob-indicator, #7fba5c);
+  }
+
+  .library-item:last-child {
+    border-bottom: none;
+  }
+
+  .library-back {
+    font-weight: bold;
+    color: var(--knob-indicator, #7fba5c);
+    border-bottom: 1px solid var(--panel-border, #5a4a3a);
+  }
+
+  .library-arrow {
+    font-size: 6px;
+    opacity: 0.5;
   }
 
   /* Waveform */
