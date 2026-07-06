@@ -99,7 +99,7 @@
 
   /* Control ports are square to distinguish from audio */
   .port-jack.control {
-    border-radius: 4px;
+    border-radius: var(--control-radius, 4px);
     width: 20px;
     height: 20px;
   }
@@ -108,7 +108,7 @@
   .port-jack.spore {
     width: 22px;
     height: 22px;
-    border-radius: 3px;
+    border-radius: var(--control-radius, 3px);
     transform: rotate(45deg);
     border-color: var(--spore-stroke, #8a6abf);
   }
@@ -170,7 +170,7 @@
   }
 
   .port-jack.control .port-hole {
-    border-radius: 2px;
+    border-radius: var(--control-radius, 2px);
     width: 7px;
     height: 7px;
   }

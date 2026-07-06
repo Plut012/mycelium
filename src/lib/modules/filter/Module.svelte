@@ -116,7 +116,7 @@
     color: var(--label-color, #a89880);
     background: var(--port-fill, #1a1210);
     border: 1px solid var(--port-stroke, #5a4a3a);
-    border-radius: 3px;
+    border-radius: var(--control-radius, 3px);
     padding: 3px 5px;
     cursor: pointer;
     letter-spacing: 0.05em;

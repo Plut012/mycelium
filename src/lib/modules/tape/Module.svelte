@@ -385,7 +385,7 @@
     color: var(--label-color, #a89880);
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 2px;
+    border-radius: var(--control-radius, 2px);
     padding: 1px 5px;
     cursor: pointer;
     white-space: nowrap;
@@ -436,7 +436,7 @@
     z-index: 10;
     background: var(--panel-bg, linear-gradient(135deg, #2a1f1a 0%, #3d2e24 100%));
     border: 1px solid var(--panel-border, #5a4a3a);
-    border-radius: 4px;
+    border-radius: var(--control-radius, 4px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
     overflow: hidden;
   }
@@ -494,7 +494,7 @@
   }
 
   .waveform-canvas {
-    border-radius: 3px;
+    border-radius: var(--control-radius, 3px);
     border: 1px solid var(--panel-border, #3a2e24);
     cursor: crosshair;
     width: 100%;
@@ -527,7 +527,7 @@
     color: var(--label-color, #a89880);
     background: var(--port-fill, #1a1210);
     border: 1px solid var(--panel-border, #5a4a3a);
-    border-radius: 3px;
+    border-radius: var(--control-radius, 3px);
     padding: 2px 5px;
     cursor: pointer;
     min-width: 24px;

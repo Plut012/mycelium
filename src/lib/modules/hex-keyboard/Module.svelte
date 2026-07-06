@@ -426,7 +426,7 @@
     color: var(--knob-indicator, #7fba5c);
     background: rgba(127, 186, 92, 0.1);
     border: 1px solid var(--knob-indicator, #7fba5c);
-    border-radius: 2px;
+    border-radius: var(--control-radius, 2px);
     padding: 3px 8px;
     cursor: pointer;
     text-transform: uppercase;
@@ -519,7 +519,7 @@
     color: var(--label-color, #a89880);
     background: rgba(26, 18, 16, 0.8);
     border: 1px solid var(--port-stroke, #5a4a3a);
-    border-radius: 4px;
+    border-radius: var(--control-radius, 4px);
     width: 36px;
     height: 36px;
     cursor: pointer;
@@ -539,7 +539,7 @@
     color: var(--label-color, #a89880);
     background: rgba(26, 18, 16, 0.8);
     border: 1px solid var(--port-stroke, #5a4a3a);
-    border-radius: 4px;
+    border-radius: var(--control-radius, 4px);
     padding: 8px 16px;
     cursor: pointer;
     text-transform: uppercase;

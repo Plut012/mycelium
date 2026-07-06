@@ -91,7 +91,7 @@
   </div>
 
   <!-- Signal display -->
-  <SignalDisplay analyserNode={engine.getAnalyserNode()} width={152} height={28} />
+  <SignalDisplay analyserNode={engine.getAnalyserNode()} />
 
   <!-- Ports -->
   <div class="ports">
@@ -129,7 +129,7 @@
     padding: 3px 0;
     background: var(--panel-bg, #2a1f1a);
     border: 1px solid var(--panel-border-color, #3a2e24);
-    border-radius: 3px;
+    border-radius: var(--control-radius, 3px);
     color: var(--label-color, #a89880);
     font-family: var(--label-font, 'Courier New', monospace);
     font-size: 9px;

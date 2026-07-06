@@ -127,7 +127,7 @@
     width: 100%;
     padding: 4px;
     background: rgba(0, 0, 0, 0.3);
-    border-radius: 3px;
+    border-radius: var(--control-radius, 3px);
   }
 
   .key-row {
@@ -143,7 +143,7 @@
   .key {
     width: 22px;
     height: 18px;
-    border-radius: 2px;
+    border-radius: var(--control-radius, 2px);
     display: flex;
     align-items: center;
     justify-content: center;

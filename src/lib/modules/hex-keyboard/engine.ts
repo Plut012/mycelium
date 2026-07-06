@@ -51,6 +51,13 @@ export class HexKeyboardEngine extends ModuleEngine {
     this.updateOutputs();
   }
 
+  /** Silence everything — safety net for lost keyups (window blur, focus steal). */
+  releaseAllNotes(): void {
+    if (this.activeNotes.size === 0) return;
+    this.activeNotes.clear();
+    this.updateOutputs();
+  }
+
   // ── Internal ─────────────────────────────────────────────────────────────
 
   private updateOutputs(): void {

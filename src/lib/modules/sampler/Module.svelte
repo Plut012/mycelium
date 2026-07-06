@@ -50,6 +50,7 @@
   // Poll loading state
   let pollFrame = 0;
   function pollLoading() {
+    tone = engine.getCurrentTone();
     loading = engine.isInstrumentLoading();
     loadProgress = engine.getLoadProgress();
     const ids = engine.getLoadedInstrumentIds();
@@ -183,7 +184,7 @@
     color: var(--label-color, #a89880);
     background: rgba(26, 18, 16, 0.6);
     border: 1px solid var(--port-stroke, #5a4a3a);
-    border-radius: 2px;
+    border-radius: var(--control-radius, 2px);
     padding: 2px 5px;
     cursor: pointer;
     text-transform: uppercase;
@@ -231,7 +232,7 @@
     height: 20px;
     background: rgba(26, 18, 16, 0.8);
     border: 1px solid var(--port-stroke, #5a4a3a);
-    border-radius: 2px;
+    border-radius: var(--control-radius, 2px);
     position: relative;
     overflow: hidden;
   }

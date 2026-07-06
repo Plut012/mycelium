@@ -5,3 +5,4 @@ export { default as PortJack } from './PortJack.svelte';
 export { default as PatchCable } from './PatchCable.svelte';
 export { default as ModulePanel } from './ModulePanel.svelte';
 export { default as SignalDisplay } from './SignalDisplay.svelte';
+export { default as Footswitch } from './Footswitch.svelte';

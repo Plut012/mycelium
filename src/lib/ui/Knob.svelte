@@ -230,7 +230,7 @@
     transform: translateX(-50%);
     width: 3px;
     height: 30%;
-    border-radius: 2px;
+    border-radius: var(--control-radius, 2px);
     background: var(--knob-indicator, #7fba5c);
     box-shadow: 0 0 4px var(--knob-indicator, #7fba5c);
   }
@@ -306,7 +306,7 @@
     flex: 1;
     width: 32px;
     background: var(--knob-track, #5a4a3a);
-    border-radius: 4px;
+    border-radius: var(--control-radius, 4px);
     position: relative;
     overflow: hidden;
   }
@@ -318,7 +318,7 @@
     right: 0;
     background: var(--knob-indicator, #7fba5c);
     opacity: 0.3;
-    border-radius: 4px;
+    border-radius: var(--control-radius, 4px);
   }
 
   .slider-thumb {
@@ -327,7 +327,7 @@
     right: 0;
     height: 4px;
     background: var(--knob-indicator, #7fba5c);
-    border-radius: 2px;
+    border-radius: var(--control-radius, 2px);
     box-shadow: 0 0 6px var(--knob-indicator, #7fba5c);
     transform: translateY(-50%);
   }
@@ -338,7 +338,7 @@
     color: var(--label-color, #a89880);
     background: rgba(26, 18, 16, 0.8);
     border: 1px solid var(--port-stroke, #5a4a3a);
-    border-radius: 3px;
+    border-radius: var(--control-radius, 3px);
     padding: 6px 12px;
     cursor: pointer;
     text-transform: uppercase;

@@ -127,7 +127,7 @@
     transform: translate(-50%, -50%);
     width: 20px;
     height: 8px;
-    border-radius: 3px;
+    border-radius: var(--control-radius, 3px);
     background: var(--knob-indicator, #7fba5c);
     box-shadow: 0 0 5px var(--knob-indicator, #7fba5c);
     pointer-events: none;

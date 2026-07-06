@@ -32,7 +32,7 @@
     onChange={setGain}
   />
 
-  <SignalDisplay analyserNode={engine.getAnalyserNode()} width={96} height={32} />
+  <SignalDisplay analyserNode={engine.getAnalyserNode()} />
 
   <div class="ports">
     <PortJack

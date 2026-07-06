@@ -206,7 +206,7 @@
     padding: 2px 4px;
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 2px;
+    border-radius: var(--control-radius, 2px);
     cursor: pointer;
     font-family: var(--label-font, 'Courier New', monospace);
     font-size: 8px;
@@ -317,7 +317,7 @@
     color: var(--label-color, #a89880);
     background: var(--port-fill, #1a1210);
     border: 1px solid var(--panel-border, #5a4a3a);
-    border-radius: 3px;
+    border-radius: var(--control-radius, 3px);
     padding: 3px 6px;
     cursor: pointer;
     min-width: 28px;

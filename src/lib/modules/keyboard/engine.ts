@@ -28,6 +28,7 @@ export class KeyboardEngine extends ModuleEngine {
   // Bound handlers for cleanup
   private boundKeyDown: ((e: KeyboardEvent) => void) | null = null;
   private boundKeyUp: ((e: KeyboardEvent) => void) | null = null;
+  private boundBlur: (() => void) | null = null;
 
   create(ctx: AudioContext): void {
     // CV output: ConstantSourceNode whose value = frequency of current note
@@ -54,23 +55,34 @@ export class KeyboardEngine extends ModuleEngine {
     // Set up keyboard listeners
     this.boundKeyDown = (e) => this.handleKeyDown(e);
     this.boundKeyUp = (e) => this.handleKeyUp(e);
+    // Focus can be stolen mid-hold (e.g. Firefox quick-find on ' or /) —
+    // the keyup then lands in browser chrome and never reaches the page.
+    // Releasing everything on blur guarantees no stuck notes.
+    this.boundBlur = () => {
+      this.activeNotes.clear();
+      this.updateOutputs();
+    };
 
     if (typeof window !== 'undefined') {
       window.addEventListener('keydown', this.boundKeyDown);
       window.addEventListener('keyup', this.boundKeyUp);
+      window.addEventListener('blur', this.boundBlur);
     }
   }
 
   private handleKeyDown(e: KeyboardEvent): void {
-    // Ignore repeats, and don't capture when typing in inputs
-    if (e.repeat) return;
+    // Don't capture when typing in inputs
     const target = e.target as HTMLElement;
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return;
 
     const midi = keyToMidi(e.key, this.baseOctave);
     if (midi === null) return;
 
+    // preventDefault even on auto-repeat — an unprevented repeat can still
+    // trigger browser find-as-you-type and steal focus mid-note
     e.preventDefault();
+    if (e.repeat) return;
+
     this.activeNotes.add(midi);
     this.updateOutputs();
   }
@@ -148,6 +160,7 @@ export class KeyboardEngine extends ModuleEngine {
     if (typeof window !== 'undefined') {
       if (this.boundKeyDown) window.removeEventListener('keydown', this.boundKeyDown);
       if (this.boundKeyUp) window.removeEventListener('keyup', this.boundKeyUp);
+      if (this.boundBlur) window.removeEventListener('blur', this.boundBlur);
     }
 
     if (this.cvNode) { this.cvNode.stop(); this.cvNode.disconnect(); this.cvNode = null; }

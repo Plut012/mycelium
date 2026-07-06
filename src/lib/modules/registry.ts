@@ -52,6 +52,61 @@ import { hexKeyboardManifest } from './hex-keyboard/manifest.js';
 import { HexKeyboardEngine } from './hex-keyboard/engine.js';
 import HexKeyboardModule from './hex-keyboard/Module.svelte';
 
+// ── Hex Qwerty ────────────────────────────────────────────────────────────────
+import { qwertyHexManifest } from './hex-qwerty/manifest.js';
+import { QwertyHexEngine } from './hex-qwerty/engine.js';
+import QwertyHexModule from './hex-qwerty/Module.svelte';
+
+// ── Fretboard ─────────────────────────────────────────────────────────────────
+import { fretboardManifest } from './fretboard/manifest.js';
+import { FretboardEngine } from './fretboard/engine.js';
+import FretboardModule from './fretboard/Module.svelte';
+
+// ── Euclid ────────────────────────────────────────────────────────────────────
+import { euclidManifest } from './euclid/manifest.js';
+import { EuclidEngine } from './euclid/engine.js';
+import EuclidModule from './euclid/Module.svelte';
+
+// ── Pedalboard: Wah ───────────────────────────────────────────────────────────
+import { wahManifest } from './wah/manifest.js';
+import { WahEngine } from './wah/engine.js';
+import WahModule from './wah/Module.svelte';
+
+// ── Pedalboard: Squeezer ──────────────────────────────────────────────────────
+import { squeezerManifest } from './squeezer/manifest.js';
+import { SqueezerEngine } from './squeezer/engine.js';
+import SqueezerModule from './squeezer/Module.svelte';
+
+// ── Pedalboard: King of Tone ──────────────────────────────────────────────────
+import { kingOfToneManifest } from './king-of-tone/manifest.js';
+import { KingOfToneEngine } from './king-of-tone/engine.js';
+import KingOfToneModule from './king-of-tone/Module.svelte';
+
+// ── Pedalboard: Bluesbreaker ──────────────────────────────────────────────────
+import { bluesbreakerManifest } from './bluesbreaker/manifest.js';
+import { BluesbreakerEngine } from './bluesbreaker/engine.js';
+import BluesbreakerModule from './bluesbreaker/Module.svelte';
+
+// ── Pedalboard: Rust Bucket ───────────────────────────────────────────────────
+import { rustBucketManifest } from './rust-bucket/manifest.js';
+import { RustBucketEngine } from './rust-bucket/engine.js';
+import RustBucketModule from './rust-bucket/Module.svelte';
+
+// ── Pedalboard: ARP-87 ────────────────────────────────────────────────────────
+import { arp87Manifest } from './arp87/manifest.js';
+import { Arp87Engine } from './arp87/engine.js';
+import Arp87Module from './arp87/Module.svelte';
+
+// ── Pedalboard: Hammertone ────────────────────────────────────────────────────
+import { hammertoneManifest } from './hammertone/manifest.js';
+import { HammertoneEngine } from './hammertone/engine.js';
+import HammertoneModule from './hammertone/Module.svelte';
+
+// ── Monitor ───────────────────────────────────────────────────────────────────
+import { monitorManifest } from './monitor/manifest.js';
+import { MonitorEngine } from './monitor/engine.js';
+import MonitorModule from './monitor/Module.svelte';
+
 // ── LFO ───────────────────────────────────────────────────────────────────────
 import { lfoManifest } from './lfo/manifest.js';
 import { LFOEngine } from './lfo/engine.js';
@@ -151,6 +206,22 @@ export const moduleRegistry = new Map<string, RegistryEntry>([
     },
   ],
   [
+    'hex-qwerty',
+    {
+      manifest: qwertyHexManifest,
+      createEngine: () => new QwertyHexEngine(),
+      component: QwertyHexModule,
+    },
+  ],
+  [
+    'fretboard',
+    {
+      manifest: fretboardManifest,
+      createEngine: () => new FretboardEngine(),
+      component: FretboardModule,
+    },
+  ],
+  [
     'sampler',
     {
       manifest: samplerManifest,
@@ -164,6 +235,78 @@ export const moduleRegistry = new Map<string, RegistryEntry>([
       manifest: reverbManifest,
       createEngine: () => new ReverbEngine(),
       component: ReverbModule,
+    },
+  ],
+  [
+    'euclid',
+    {
+      manifest: euclidManifest,
+      createEngine: () => new EuclidEngine(),
+      component: EuclidModule,
+    },
+  ],
+  [
+    'squeezer',
+    {
+      manifest: squeezerManifest,
+      createEngine: () => new SqueezerEngine(),
+      component: SqueezerModule,
+    },
+  ],
+  [
+    'king-of-tone',
+    {
+      manifest: kingOfToneManifest,
+      createEngine: () => new KingOfToneEngine(),
+      component: KingOfToneModule,
+    },
+  ],
+  [
+    'bluesbreaker',
+    {
+      manifest: bluesbreakerManifest,
+      createEngine: () => new BluesbreakerEngine(),
+      component: BluesbreakerModule,
+    },
+  ],
+  [
+    'wah',
+    {
+      manifest: wahManifest,
+      createEngine: () => new WahEngine(),
+      component: WahModule,
+    },
+  ],
+  [
+    'rust-bucket',
+    {
+      manifest: rustBucketManifest,
+      createEngine: () => new RustBucketEngine(),
+      component: RustBucketModule,
+    },
+  ],
+  [
+    'arp87',
+    {
+      manifest: arp87Manifest,
+      createEngine: () => new Arp87Engine(),
+      component: Arp87Module,
+    },
+  ],
+  [
+    'hammertone',
+    {
+      manifest: hammertoneManifest,
+      createEngine: () => new HammertoneEngine(),
+      component: HammertoneModule,
+    },
+  ],
+  [
+    'monitor',
+    {
+      manifest: monitorManifest,
+      createEngine: () => new MonitorEngine(),
+      component: MonitorModule,
     },
   ],
   [

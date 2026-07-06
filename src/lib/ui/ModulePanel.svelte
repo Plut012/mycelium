@@ -11,7 +11,7 @@
   let { title, gridWidth = 3, gridHeight = 4, children }: Props = $props();
 
   // Grid cell size in px — must match GRID_CELL in +page.svelte
-  const CELL = 60;
+  const CELL = 72;
   const GAP = 8; // internal padding allowance
 
   let panelWidth = $derived(gridWidth * CELL - GAP);

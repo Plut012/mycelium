@@ -27,7 +27,7 @@
   import type { SamplerEngine } from '$lib/modules/sampler/engine.js';
 
   // ── Grid constants ──────────────────────────────────────────────────────────
-  const CELL = 60;       // px per grid unit — must match ModulePanel.svelte
+  const CELL = 72;       // px per grid unit — must match ModulePanel.svelte
   const GRID_COLS = 24;  // total grid columns
   const GRID_ROWS = 16;  // total grid rows
 
@@ -481,7 +481,89 @@
     connections: { from: { type: string; port: string }; to: { type: string; port: string } }[];
   }
 
+  // ── Pedalboard performance states ──────────────────────────────────────────
+  // One canonical chain (docs/todo_tasks/pedalboard_signal_path.md §1–2), four
+  // engage-state recipes (§6). Same modules, same cables — only params differ.
+
+  function pedalboardPreset(
+    name: string,
+    description: string,
+    p: Record<string, Record<string, number | string>>,
+  ): Preset {
+    const layout: { type: string; position: { x: number; y: number } }[] = [
+      { type: 'fretboard', position: { x: 0, y: 0 } },
+      { type: 'sampler', position: { x: 0, y: 3 } },
+      { type: 'squeezer', position: { x: 4, y: 3 } },
+      { type: 'king-of-tone', position: { x: 7, y: 3 } },
+      { type: 'rust-bucket', position: { x: 11, y: 3 } },
+      { type: 'wah', position: { x: 15, y: 3 } },
+      { type: 'bluesbreaker', position: { x: 18, y: 3 } },
+      { type: 'arp87', position: { x: 0, y: 8 } },
+      { type: 'hammertone', position: { x: 4, y: 8 } },
+      { type: 'output', position: { x: 8, y: 8 } },
+    ];
+    const chain = [
+      'sampler', 'squeezer', 'king-of-tone', 'rust-bucket', 'wah',
+      'bluesbreaker', 'arp87', 'hammertone', 'output',
+    ];
+    return {
+      name,
+      description,
+      modules: layout.map((m) => ({ ...m, params: p[m.type] })),
+      connections: [
+        { from: { type: 'fretboard', port: 'note_data' }, to: { type: 'sampler', port: 'note_data' } },
+        ...chain.slice(0, -1).map((type, i) => ({
+          from: { type, port: 'audio_out' },
+          to: { type: chain[i + 1], port: 'audio_in' },
+        })),
+      ],
+    };
+  }
+
+  // Params shared by every state
+  const pbCommon = {
+    fretboard: { octave: 2 },
+    sampler: { tone: 'nylon', attack: 0.005, release: 0.8, brightness: 0.5, volume: 0.6 },
+    output: { volume: 0.4 },
+  };
+
   const presets: Preset[] = [
+    {
+      name: 'Tape Lounge',
+      description: 'Tape → Filter → Delay → Reverb → Output — warm vinyl lounge with slow filter drift',
+      modules: [
+        { type: 'tape', position: { x: 0, y: 0 }, params: { volume: 0.8, speed: 1.0, loop: 1 } },
+        { type: 'filter', position: { x: 0, y: 3 }, params: { frequency: 3500, Q: 0.8, type: 'lowpass' } },
+        { type: 'lfo', position: { x: 3, y: 3 }, params: { rate: 0.15, depth: 0.3, waveform: 'sine' } },
+        { type: 'delay', position: { x: 6, y: 3 }, params: { delayTime: 0.4, feedback: 0.2, mix: 0.15 } },
+        { type: 'reverb', position: { x: 9, y: 3 }, params: { size: 'hall', decay: 3.5, mix: 0.3, damping: 0.5 } },
+        { type: 'output', position: { x: 12, y: 3 }, params: { volume: 0.5 } },
+      ],
+      connections: [
+        { from: { type: 'tape', port: 'audio_out' }, to: { type: 'filter', port: 'audio_in' } },
+        { from: { type: 'lfo', port: 'cv_out' }, to: { type: 'filter', port: 'cutoff_cv' } },
+        { from: { type: 'filter', port: 'audio_out' }, to: { type: 'delay', port: 'audio_in' } },
+        { from: { type: 'delay', port: 'audio_out' }, to: { type: 'reverb', port: 'audio_in' } },
+        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
+      ],
+    },
+    {
+      name: 'Jukebox',
+      description: 'Scroll → Sampler (Grand Piano) → Delay → Reverb → Output — auto-playing song library',
+      modules: [
+        { type: 'scroll', position: { x: 0, y: 0 }, params: { tempo: 100, transpose: 0, loop: 1 } },
+        { type: 'sampler', position: { x: 3, y: 0 }, params: { attack: 0.005, release: 1.5, brightness: 0.5, volume: 0.7 }, instrument: 'salamander-piano' },
+        { type: 'delay', position: { x: 7, y: 0 }, params: { delayTime: 0.35, feedback: 0.25, mix: 0.2 } },
+        { type: 'reverb', position: { x: 10, y: 0 }, params: { size: 'large', decay: 2.5, mix: 0.3, damping: 0.4 } },
+        { type: 'output', position: { x: 13, y: 0 }, params: { volume: 0.5 } },
+      ],
+      connections: [
+        { from: { type: 'scroll', port: 'note_data' }, to: { type: 'sampler', port: 'note_data' } },
+        { from: { type: 'sampler', port: 'audio_out' }, to: { type: 'delay', port: 'audio_in' } },
+        { from: { type: 'delay', port: 'audio_out' }, to: { type: 'reverb', port: 'audio_in' } },
+        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
+      ],
+    },
     {
       name: 'Simple Tone',
       description: 'Oscillator → Output',
@@ -535,116 +617,153 @@
       ],
     },
     {
-      name: 'Tape Lounge',
-      description: 'Tape → Filter → Delay → Reverb → Output — warm vinyl lounge with slow filter drift',
-      modules: [
-        { type: 'tape', position: { x: 0, y: 0 }, params: { volume: 0.8, speed: 1.0, loop: 1 } },
-        { type: 'filter', position: { x: 0, y: 3 }, params: { frequency: 3500, Q: 0.8, type: 'lowpass' } },
-        { type: 'lfo', position: { x: 3, y: 3 }, params: { rate: 0.15, depth: 0.3, waveform: 'sine' } },
-        { type: 'delay', position: { x: 6, y: 3 }, params: { delayTime: 0.4, feedback: 0.2, mix: 0.15 } },
-        { type: 'reverb', position: { x: 9, y: 3 }, params: { size: 'hall', decay: 3.5, mix: 0.3, damping: 0.5 } },
-        { type: 'output', position: { x: 12, y: 3 }, params: { volume: 0.5 } },
-      ],
-      connections: [
-        { from: { type: 'tape', port: 'audio_out' }, to: { type: 'filter', port: 'audio_in' } },
-        { from: { type: 'lfo', port: 'cv_out' }, to: { type: 'filter', port: 'cutoff_cv' } },
-        { from: { type: 'filter', port: 'audio_out' }, to: { type: 'delay', port: 'audio_in' } },
-        { from: { type: 'delay', port: 'audio_out' }, to: { type: 'reverb', port: 'audio_in' } },
-        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
-      ],
-    },
-    {
-      name: 'Warm Chords',
-      description: 'Keyboard → Sampler (nylon) → Reverb → Output — beautiful for exploring chords',
+      name: 'Sampler Keys',
+      description: 'Keyboard → Sampler → Reverb → Monitor → Output — pick a tone or instrument on the sampler',
       modules: [
         { type: 'keyboard', position: { x: 0, y: 1 }, params: { octave: 3 } },
         { type: 'sampler', position: { x: 5, y: 0 }, params: { tone: 'nylon', attack: 0.01, release: 1.2, brightness: 0.35, volume: 0.7 } },
-        { type: 'reverb', position: { x: 9, y: 0 }, params: { size: 'medium', decay: 2.5, mix: 0.35, damping: 0.5 } },
-        { type: 'output', position: { x: 12, y: 0 }, params: { volume: 0.4 } },
+        { type: 'reverb', position: { x: 9, y: 0 }, params: { size: 'medium', decay: 2.5, mix: 0.3, damping: 0.5 } },
+        { type: 'monitor', position: { x: 12, y: 0 } },
+        { type: 'output', position: { x: 17, y: 0 }, params: { volume: 0.4 } },
       ],
       connections: [
         { from: { type: 'keyboard', port: 'note_data' }, to: { type: 'sampler', port: 'note_data' } },
         { from: { type: 'sampler', port: 'audio_out' }, to: { type: 'reverb', port: 'audio_in' } },
-        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
-      ],
-    },
-    {
-      name: 'Grand Piano',
-      description: 'Keyboard → Sampler (Salamander Grand) → Reverb → Output — real piano samples',
-      modules: [
-        { type: 'keyboard', position: { x: 0, y: 1 }, params: { octave: 3 } },
-        { type: 'sampler', position: { x: 5, y: 0 }, params: { attack: 0.005, release: 1.5, brightness: 0.5, volume: 0.7 }, instrument: 'salamander-piano' },
-        { type: 'reverb', position: { x: 9, y: 0 }, params: { size: 'large', decay: 2.5, mix: 0.25, damping: 0.4 } },
-        { type: 'output', position: { x: 12, y: 0 }, params: { volume: 0.5 } },
-      ],
-      connections: [
-        { from: { type: 'keyboard', port: 'note_data' }, to: { type: 'sampler', port: 'note_data' } },
-        { from: { type: 'sampler', port: 'audio_out' }, to: { type: 'reverb', port: 'audio_in' } },
-        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
-      ],
-    },
-    {
-      name: 'Brass Ensemble',
-      description: 'Keyboard → Sampler (French Horn) → Reverb (hall) → Output — warm brass chords',
-      modules: [
-        { type: 'keyboard', position: { x: 0, y: 1 }, params: { octave: 3 } },
-        { type: 'sampler', position: { x: 5, y: 0 }, params: { attack: 0.05, release: 0.6, brightness: 0.4, volume: 0.7 }, instrument: 'french-horn' },
-        { type: 'reverb', position: { x: 9, y: 0 }, params: { size: 'hall', decay: 3, mix: 0.3, damping: 0.4 } },
-        { type: 'output', position: { x: 12, y: 0 }, params: { volume: 0.5 } },
-      ],
-      connections: [
-        { from: { type: 'keyboard', port: 'note_data' }, to: { type: 'sampler', port: 'note_data' } },
-        { from: { type: 'sampler', port: 'audio_out' }, to: { type: 'reverb', port: 'audio_in' } },
-        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
+        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'monitor', port: 'audio_in' } },
+        { from: { type: 'monitor', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
       ],
     },
     {
       name: 'Hex Chords',
-      description: 'Hex Keys → Sampler (warm pad) → Reverb → Output — touch isomorphic keyboard',
+      description: 'Hex Keys → Sampler (warm pad) → Reverb → Monitor → Output — touch isomorphic keyboard',
       modules: [
         { type: 'hex-keyboard', position: { x: 0, y: 0 }, params: { octave: 3 } },
         { type: 'sampler', position: { x: 0, y: 5 }, params: { tone: 'warm-pad', attack: 0.02, release: 1.0, brightness: 0.35, volume: 0.7 } },
         { type: 'reverb', position: { x: 4, y: 5 }, params: { size: 'large', decay: 2.5, mix: 0.3, damping: 0.4 } },
-        { type: 'output', position: { x: 7, y: 5 }, params: { volume: 0.4 } },
+        { type: 'monitor', position: { x: 7, y: 5 } },
+        { type: 'output', position: { x: 12, y: 5 }, params: { volume: 0.4 } },
       ],
       connections: [
         { from: { type: 'hex-keyboard', port: 'note_data' }, to: { type: 'sampler', port: 'note_data' } },
         { from: { type: 'sampler', port: 'audio_out' }, to: { type: 'reverb', port: 'audio_in' } },
-        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
+        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'monitor', port: 'audio_in' } },
+        { from: { type: 'monitor', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
       ],
     },
     {
-      name: 'Jukebox',
-      description: 'Scroll → Sampler (Grand Piano) → Delay → Reverb → Output — auto-playing song library',
+      name: 'Hex Qwerty',
+      description: 'Hex Qwerty → Sampler (warm pad) → Reverb → Monitor → Output — isomorphic chords on your physical keys',
       modules: [
-        { type: 'scroll', position: { x: 0, y: 0 }, params: { tempo: 100, transpose: 0, loop: 1 } },
-        { type: 'sampler', position: { x: 3, y: 0 }, params: { attack: 0.005, release: 1.5, brightness: 0.5, volume: 0.7 }, instrument: 'salamander-piano' },
-        { type: 'delay', position: { x: 7, y: 0 }, params: { delayTime: 0.35, feedback: 0.25, mix: 0.2 } },
-        { type: 'reverb', position: { x: 10, y: 0 }, params: { size: 'large', decay: 2.5, mix: 0.3, damping: 0.4 } },
-        { type: 'output', position: { x: 13, y: 0 }, params: { volume: 0.5 } },
+        { type: 'hex-qwerty', position: { x: 0, y: 0 }, params: { octave: 3 } },
+        { type: 'sampler', position: { x: 0, y: 4 }, params: { tone: 'warm-pad', attack: 0.02, release: 1.0, brightness: 0.35, volume: 0.7 } },
+        { type: 'reverb', position: { x: 4, y: 4 }, params: { size: 'large', decay: 2.5, mix: 0.3, damping: 0.4 } },
+        { type: 'monitor', position: { x: 7, y: 4 } },
+        { type: 'output', position: { x: 12, y: 4 }, params: { volume: 0.4 } },
       ],
       connections: [
-        { from: { type: 'scroll', port: 'note_data' }, to: { type: 'sampler', port: 'note_data' } },
-        { from: { type: 'sampler', port: 'audio_out' }, to: { type: 'delay', port: 'audio_in' } },
-        { from: { type: 'delay', port: 'audio_out' }, to: { type: 'reverb', port: 'audio_in' } },
-        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
-      ],
-    },
-    {
-      name: 'Soft Piano',
-      description: 'Keyboard → Sampler (soft keys) → Reverb (hall) → Output',
-      modules: [
-        { type: 'keyboard', position: { x: 0, y: 1 }, params: { octave: 3 } },
-        { type: 'sampler', position: { x: 5, y: 0 }, params: { tone: 'soft-keys', attack: 0.005, release: 0.8, brightness: 0.4, volume: 0.6 } },
-        { type: 'reverb', position: { x: 9, y: 0 }, params: { size: 'hall', decay: 3, mix: 0.3, damping: 0.6 } },
-        { type: 'output', position: { x: 12, y: 0 }, params: { volume: 0.4 } },
-      ],
-      connections: [
-        { from: { type: 'keyboard', port: 'note_data' }, to: { type: 'sampler', port: 'note_data' } },
+        { from: { type: 'hex-qwerty', port: 'note_data' }, to: { type: 'sampler', port: 'note_data' } },
         { from: { type: 'sampler', port: 'audio_out' }, to: { type: 'reverb', port: 'audio_in' } },
-        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
+        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'monitor', port: 'audio_in' } },
+        { from: { type: 'monitor', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
       ],
     },
+    {
+      name: 'Fretboard',
+      description: 'Fretboard → Sampler (nylon) → Reverb → Monitor → Output — four strings in fourths, play the QWERTY rows',
+      modules: [
+        { type: 'fretboard', position: { x: 0, y: 0 }, params: { octave: 2 } },
+        { type: 'sampler', position: { x: 0, y: 3 }, params: { tone: 'nylon', attack: 0.005, release: 0.9, brightness: 0.45, volume: 0.7 } },
+        { type: 'reverb', position: { x: 4, y: 3 }, params: { size: 'medium', decay: 2, mix: 0.25, damping: 0.5 } },
+        { type: 'monitor', position: { x: 7, y: 3 } },
+        { type: 'output', position: { x: 12, y: 3 }, params: { volume: 0.4 } },
+      ],
+      connections: [
+        { from: { type: 'fretboard', port: 'note_data' }, to: { type: 'sampler', port: 'note_data' } },
+        { from: { type: 'sampler', port: 'audio_out' }, to: { type: 'reverb', port: 'audio_in' } },
+        { from: { type: 'reverb', port: 'audio_out' }, to: { type: 'monitor', port: 'audio_in' } },
+        { from: { type: 'monitor', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
+      ],
+    },
+    {
+      name: 'Euclid Groove',
+      description: 'Euclid gates a filtered saw — hold keyboard keys for pitch, watch the pulse on the Monitor',
+      modules: [
+        { type: 'euclid', position: { x: 0, y: 0 }, params: { tempo: 116, steps: 16, fills: 5, rotate: 0 } },
+        { type: 'keyboard', position: { x: 4, y: 0 }, params: { octave: 2 } },
+        { type: 'oscillator', position: { x: 9, y: 0 }, params: { waveform: 'sawtooth' } },
+        { type: 'filter', position: { x: 12, y: 0 }, params: { frequency: 1100, Q: 4, type: 'lowpass' } },
+        { type: 'gain', position: { x: 15, y: 0 }, params: { gain: 0 } },
+        { type: 'delay', position: { x: 17, y: 0 }, params: { delayTime: 0.32, feedback: 0.35, mix: 0.25 } },
+        { type: 'envelope', position: { x: 0, y: 5 }, params: { attack: 0.005, decay: 0.12, sustain: 0.25, release: 0.2 } },
+        { type: 'monitor', position: { x: 4, y: 5 } },
+        { type: 'output', position: { x: 10, y: 5 }, params: { volume: 0.4 } },
+      ],
+      connections: [
+        { from: { type: 'keyboard', port: 'cv_out' }, to: { type: 'oscillator', port: 'frequency' } },
+        { from: { type: 'euclid', port: 'gate_out' }, to: { type: 'envelope', port: 'gate_in' } },
+        { from: { type: 'envelope', port: 'cv_out' }, to: { type: 'gain', port: 'gain' } },
+        { from: { type: 'oscillator', port: 'audio_out' }, to: { type: 'filter', port: 'audio_in' } },
+        { from: { type: 'filter', port: 'audio_out' }, to: { type: 'gain', port: 'audio_in' } },
+        { from: { type: 'gain', port: 'audio_out' }, to: { type: 'delay', port: 'audio_in' } },
+        { from: { type: 'delay', port: 'audio_out' }, to: { type: 'monitor', port: 'audio_in' } },
+        { from: { type: 'monitor', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
+      ],
+    },
+    pedalboardPreset(
+      'Pedalboard',
+      'Foundation / bed — comp breathes, King feeds, wah parked, Blues resting. Build the wet backing here.',
+      {
+        ...pbCommon,
+        squeezer: { sustain: 0.45, level: 0.7, engaged: 1 },
+        'king-of-tone': { volume: 0.6, gain: 0.3, tone: 0.5, presence: 0.3, mode: 'od', engaged: 1 },
+        'rust-bucket': { volume: 0.7, boost: 0, fuzz: 0, octave: 0 },
+        wah: { position: 0.45, engaged: 1 },
+        bluesbreaker: { volume: 0.65, gain: 0.4, tone: 0.45, presence: 0.15, mode: 'od', engaged: 0 },
+        arp87: { level: 0.4, dampen: 0.45, repeats: 0.3, ratio: 2, x: 0.25, program: 'analog', engaged: 1 },
+        hammertone: { time: 0.35, damp: 0.5, level: 0.3, type: 'room', engaged: 1 },
+      },
+    ),
+    {
+      name: 'Hex Haze',
+      description: 'Chill hex chords — breathing comp, LFO-swept wah, dark analog repeats, long hall. Stomp the Bluesbreaker for grit.',
+      modules: [
+        { type: 'hex-qwerty', position: { x: 0, y: 0 }, params: { octave: 3 } },
+        { type: 'monitor', position: { x: 11, y: 0 } },
+        { type: 'lfo', position: { x: 16, y: 0 }, params: { rate: 0.13, depth: 0.35, waveform: 'sine' } },
+        { type: 'sampler', position: { x: 0, y: 4 }, params: { tone: 'warm-pad', attack: 0.08, release: 1.6, brightness: 0.3, volume: 0.65 } },
+        { type: 'squeezer', position: { x: 4, y: 4 }, params: { sustain: 0.55, level: 0.7, engaged: 1 } },
+        { type: 'bluesbreaker', position: { x: 7, y: 4 }, params: { volume: 0.6, gain: 0.5, tone: 0.4, presence: 0.1, mode: 'od', engaged: 0 } },
+        { type: 'wah', position: { x: 16, y: 4 }, params: { position: 0.35, engaged: 1 } },
+        { type: 'arp87', position: { x: 19, y: 4 }, params: { level: 0.5, dampen: 0.35, repeats: 0.45, ratio: 1, x: 0.4, program: 'analog', trails: 1, engaged: 1 } },
+        { type: 'hammertone', position: { x: 0, y: 9 }, params: { time: 0.6, damp: 0.4, level: 0.4, type: 'hall', tone: 1, engaged: 1 } },
+        { type: 'output', position: { x: 4, y: 9 }, params: { volume: 0.45 } },
+      ],
+      connections: [
+        { from: { type: 'hex-qwerty', port: 'note_data' }, to: { type: 'sampler', port: 'note_data' } },
+        { from: { type: 'sampler', port: 'audio_out' }, to: { type: 'squeezer', port: 'audio_in' } },
+        { from: { type: 'squeezer', port: 'audio_out' }, to: { type: 'bluesbreaker', port: 'audio_in' } },
+        { from: { type: 'bluesbreaker', port: 'audio_out' }, to: { type: 'wah', port: 'audio_in' } },
+        { from: { type: 'lfo', port: 'cv_out' }, to: { type: 'wah', port: 'position_cv' } },
+        { from: { type: 'wah', port: 'audio_out' }, to: { type: 'arp87', port: 'audio_in' } },
+        { from: { type: 'arp87', port: 'audio_out' }, to: { type: 'hammertone', port: 'audio_in' } },
+        { from: { type: 'hammertone', port: 'audio_out' }, to: { type: 'monitor', port: 'audio_in' } },
+        { from: { type: 'monitor', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
+      ],
+    },
+    pedalboardPreset(
+      'Pedalboard: Lead',
+      'Lead — octave singing on single notes, Blues volume bump finishing, reverb pulled back.',
+      {
+        ...pbCommon,
+        squeezer: { sustain: 0.5, level: 0.7, engaged: 1 },
+        'king-of-tone': { volume: 0.6, gain: 0.35, tone: 0.5, presence: 0.3, mode: 'od', engaged: 1 },
+        'rust-bucket': { volume: 0.7, boost: 1, fuzz: 0, octave: 1 },
+        wah: { position: 0.45, engaged: 1 },
+        bluesbreaker: { volume: 0.75, gain: 0.45, tone: 0.45, presence: 0.15, mode: 'od', engaged: 1 },
+        arp87: { level: 0.45, dampen: 0.45, repeats: 0.35, ratio: 2, x: 0.25, program: 'analog', engaged: 1 },
+        hammertone: { time: 0.35, damp: 0.5, level: 0.15, type: 'room', engaged: 1 },
+      },
+    ),
   ];
 
   // instrumentPacks imported from '$lib/instruments/index.js'

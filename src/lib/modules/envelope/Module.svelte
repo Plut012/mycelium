@@ -61,7 +61,7 @@
     />
   </div>
 
-  <SignalDisplay analyserNode={engine.getAnalyserNode()} width={156} height={36} />
+  <SignalDisplay analyserNode={engine.getAnalyserNode()} />
 
   <div class="ports">
     <PortJack
