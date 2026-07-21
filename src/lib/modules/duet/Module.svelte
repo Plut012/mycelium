@@ -15,7 +15,7 @@
   let root = $state(2);
   let octave = $state(3);
   let intonation = $state(0.5);
-  let vibrato = $state(0.4);
+  let vibrato = $state(0);
   let level = $state(0.8);
 
   function setParam(id: string, v: number) {
@@ -24,12 +24,13 @@
 
   // ── Live string state (panel preview + fullscreen readouts) ───────────────
 
+  const STRINGS = [0, 1, 2] as const;
+
   type StringState = { active: boolean; pos: number; noteName: string; cents: number };
-  let states = $state<StringState[]>([
-    { active: false, pos: 0, noteName: '', cents: 0 },
-    { active: false, pos: 0, noteName: '', cents: 0 },
-  ]);
-  let openStrings = $state<string[]>(['D3', 'A3']);
+  let states = $state<StringState[]>(
+    STRINGS.map(() => ({ active: false, pos: 0, noteName: '', cents: 0 }))
+  );
+  let openStrings = $state<string[]>(['D3', 'A3', 'E4']);
 
   let animFrame = 0;
   function poll() {
@@ -51,11 +52,12 @@
   let surfaceH = $state(0);
 
   // Finger positions in surface pixels, per string, for rendering
-  let fingers = $state<({ x: number; y: number } | null)[]>([null, null]);
+  let fingers = $state<({ x: number; y: number } | null)[]>(STRINGS.map(() => null));
 
   const pointerString = new Map<number, number>();
 
-  const stringX = (i: number) => surfaceW * (i === 0 ? 0.35 : 0.65);
+  // Bassiest string (index 0) all the way to the right
+  const stringX = (i: number) => surfaceW * (0.78 - i * 0.28);
   const BEND_DEAD_PX = 12;
 
   function surfacePoint(e: { clientX: number; clientY: number }): { x: number; y: number } {
@@ -81,9 +83,11 @@
     const { x, y } = surfacePoint(e);
     // Claim the nearest free string — capture holds for the whole phrase
     const taken = new Set(pointerString.values());
-    let idx = x < surfaceW / 2 ? 0 : 1;
-    if (taken.has(idx)) idx = 1 - idx;
-    if (taken.has(idx)) return; // both strings busy
+    const free = STRINGS.filter((i) => !taken.has(i));
+    if (free.length === 0) return; // all strings busy
+    const idx = free.reduce((best, i) =>
+      Math.abs(x - stringX(i)) < Math.abs(x - stringX(best)) ? i : best
+    );
     pointerString.set(e.pointerId, idx);
     fingers[idx] = { x, y };
     const { pos, bend } = posBend(idx, x, y);
@@ -119,7 +123,7 @@
   function releaseAllPointers() {
     engine.releaseAll();
     pointerString.clear();
-    fingers = [null, null];
+    fingers = STRINGS.map(() => null);
   }
 
   async function openFullscreen() {
@@ -178,10 +182,10 @@
     <Knob value={level} min={0} max={1} label="LEVEL" onChange={(v) => { level = v; setParam('level', v); }} />
   </div>
 
-  <!-- Mini preview: the two strings, live finger dots -->
+  <!-- Mini preview: three strings, bass rightmost, live finger dots -->
   <svg class="preview" viewBox="0 0 80 34">
-    {#each [0, 1] as i}
-      {@const x = 25 + i * 30}
+    {#each STRINGS as i}
+      {@const x = 64 - i * 24}
       <line x1={x} y1="2" x2={x} y2="26" class="preview-string" class:sounding={states[i].active} />
       {#if states[i].active}
         <circle cx={x} cy={2 + (1 - states[i].pos) * 24} r="3" class="preview-dot" />
@@ -220,13 +224,13 @@
     onpointercancel={onPointerUp}
   >
     <svg class="fs-strings" width={surfaceW} height={surfaceH}>
-      {#each [0, 1] as i}
+      {#each STRINGS as i}
         <path d={stringPath(i)} class="fs-string" class:sounding={states[i].active} />
         {#if fingers[i]}
           <circle cx={fingers[i].x} cy={fingers[i].y} r="22" class="fs-finger-halo" />
           <circle cx={fingers[i].x} cy={fingers[i].y} r="7" class="fs-finger" />
           <text
-            x={fingers[i].x + (i === 0 ? -40 : 40)}
+            x={fingers[i].x + (fingers[i].x > surfaceW / 2 ? -44 : 44)}
             y={fingers[i].y + 5}
             text-anchor="middle"
             class="fs-note"

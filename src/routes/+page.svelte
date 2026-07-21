@@ -567,8 +567,8 @@
       name: 'Chamber',
       description: 'Duet ×2 (bass + violin lead) → X-Factor → Freeze ×2 → Halo → Output — bow a drone, freeze it, solo over your own bed',
       modules: [
-        { type: 'duet', key: 'duet-bass', position: { x: 0, y: 0 }, params: { root: 4, octave: 2, intonation: 0.6, vibrato: 0.35, level: 0.85 } },
-        { type: 'duet', key: 'duet-lead', position: { x: 4, y: 0 }, params: { root: 2, octave: 4, intonation: 0.5, vibrato: 0.5, level: 0.75 } },
+        { type: 'duet', key: 'duet-bass', position: { x: 0, y: 0 }, params: { root: 4, octave: 2, intonation: 0.6, vibrato: 0, level: 0.85 } },
+        { type: 'duet', key: 'duet-lead', position: { x: 4, y: 0 }, params: { root: 2, octave: 4, intonation: 0.5, vibrato: 0, level: 0.75 } },
         { type: 'x-factor', position: { x: 8, y: 0 }, params: { x: 0.45 } },
         { type: 'freeze', key: 'freeze1', position: { x: 11, y: 0 }, params: { freeze: 0, bed_level: 0.7 } },
         { type: 'freeze', key: 'freeze2', position: { x: 13, y: 0 }, params: { freeze: 0, bed_level: 0.7 } },

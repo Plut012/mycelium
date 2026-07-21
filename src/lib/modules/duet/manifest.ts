@@ -5,7 +5,7 @@ export const duetManifest: ModuleManifest = {
   name: 'Duet',
   category: 'source',
   description:
-    'Two violin-inspired touch strings — slide for pitch, drift sideways for a gentle bend, hold still for vibrato. Fullscreen play for phones.',
+    'Three violin-inspired touch strings, bass rightmost — slide for pitch, drift sideways for a gentle bend. Vibrato is yours; held notes settle into tune. Fullscreen play for phones.',
   gridWidth: 4,
   gridHeight: 4,
   inputs: [],
@@ -43,7 +43,8 @@ export const duetManifest: ModuleManifest = {
       type: 'continuous',
       min: 0,
       max: 1,
-      default: 0.4,
+      // Vibrato comes from the player's finger — auto-vibrato is opt-in
+      default: 0,
     },
     {
       id: 'level',

@@ -17,6 +17,7 @@ import { midiToFreq, NOTE_NAMES } from '$lib/modules/keyboard/music.js';
  * when a finger holds still.
  */
 
+const STRING_COUNT = 3;
 const PITCH_RANGE_SEMITONES = 24; // 2 octaves along a string
 const STRING_INTERVAL = 7;        // strings a fifth apart
 const BEND_SEMITONES = 0.4;       // ~40 cents at full sideways drift
@@ -48,6 +49,7 @@ interface StringVoice {
   midi: number;
   lastMoveTime: number;
   lastSemis: number;
+  lastBend: number;
 }
 
 export class DuetEngine extends ModuleEngine {
@@ -60,7 +62,7 @@ export class DuetEngine extends ModuleEngine {
   private root = 2;      // D
   private octave = 3;
   private intonation = 0.5;
-  private vibratoAmt = 0.4;
+  private vibratoAmt = 0; // vibrato is the player's — auto-vibrato is opt-in
   private level = 0.8;
 
   create(ctx: AudioContext): void {
@@ -73,19 +75,20 @@ export class DuetEngine extends ModuleEngine {
     this.analyser.smoothingTimeConstant = 0.4;
     this.master.connect(this.analyser);
 
-    this.strings = [this.buildString(ctx), this.buildString(ctx)];
+    this.strings = Array.from({ length: STRING_COUNT }, () => this.buildString(ctx));
 
-    // Stillness detector: fade auto-vibrato in on held positions, out on motion
+    // Stillness detector: on held positions, fade in auto-vibrato (if any)
+    // and settle the pitch into tune — a player correcting into a sustain.
+    // Manual vibrato counts as motion, so it always wins over both.
     this.stillTimer = setInterval(() => {
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
       const t = performance.now();
       for (const s of this.strings) {
-        const target =
-          s.active && t - s.lastMoveTime > STILL_MS
-            ? this.vibratoAmt * VIBRATO_MAX_CENTS
-            : 0;
+        const still = s.active && t - s.lastMoveTime > STILL_MS;
+        const target = still ? this.vibratoAmt * VIBRATO_MAX_CENTS : 0;
         s.vibDepth.gain.setTargetAtTime(target, now, target > 0 ? 0.25 : 0.08);
+        if (still && this.intonation > 0) this.settle(s, now);
       }
     }, 80);
 
@@ -93,12 +96,14 @@ export class DuetEngine extends ModuleEngine {
   }
 
   private buildString(ctx: AudioContext): StringVoice {
+    // ±2¢ — enough width for warmth without the slow beating "wobble" that
+    // wider detune puts on every held note
     const osc1 = ctx.createOscillator();
     osc1.type = 'sawtooth';
-    osc1.detune.value = 4;
+    osc1.detune.value = 2;
     const osc2 = ctx.createOscillator();
     osc2.type = 'sawtooth';
-    osc2.detune.value = -4;
+    osc2.detune.value = -2;
 
     const preGain = ctx.createGain();
     preGain.gain.value = 0.5;
@@ -140,8 +145,26 @@ export class DuetEngine extends ModuleEngine {
 
     return {
       osc1, osc2, preGain, filters, bandGains, envelope, vibrato, vibDepth,
-      active: false, pos: 0, midi: 0, lastMoveTime: 0, lastSemis: 0,
+      active: false, pos: 0, midi: 0, lastMoveTime: 0, lastSemis: 0, lastBend: 0,
     };
+  }
+
+  /**
+   * Ease a held note into tune (held bends sustain). Full settle from
+   * knob ≥ 0.5 so the default gives solid sustains; below that it's partial,
+   * and at 0 the string is honestly fretless.
+   */
+  private settle(s: StringVoice, now: number): void {
+    const raw = s.lastSemis;
+    const nearest = Math.round(raw);
+    const strength = Math.min(1, this.intonation * 2);
+    const semis = raw + (nearest - raw) * strength + s.lastBend * BEND_SEMITONES;
+    const midi = 12 * (this.octave + 1) + this.root + semis;
+    if (Math.abs(midi - s.midi) < 0.001) return;
+    s.midi = midi;
+    const freq = midiToFreq(midi);
+    s.osc1.frequency.setTargetAtTime(freq, now, 0.25);
+    s.osc2.frequency.setTargetAtTime(freq, now, 0.25);
   }
 
   // ── Playing surface API (called by the UI) ───────────────────────────────
@@ -198,6 +221,8 @@ export class DuetEngine extends ModuleEngine {
     if (Math.abs(raw - s.lastSemis) > MOVE_EPSILON) s.lastMoveTime = t;
     s.lastSemis = raw;
 
+    s.lastBend = bend;
+
     const assist = isAttack
       ? this.intonation
       : this.intonation * Math.max(0, 1 - speed / 0.02);
@@ -250,10 +275,10 @@ export class DuetEngine extends ModuleEngine {
     });
   }
 
-  /** Open-string note names for labels, e.g. ["D3", "A3"]. */
+  /** Open-string note names for labels, lowest first — e.g. ["D3", "A3", "E4"]. */
   getOpenStrings(): string[] {
     const rootMidi = 12 * (this.octave + 1) + this.root;
-    return [0, 1].map((i) => {
+    return Array.from({ length: STRING_COUNT }, (_, i) => {
       const m = rootMidi + i * STRING_INTERVAL;
       return `${NOTE_NAMES[((m % 12) + 12) % 12]}${Math.floor(m / 12) - 1}`;
     });

@@ -1,6 +1,11 @@
 # Duet — Two-String Touchscreen Vocal Instrument
 
-**Status:** V1 IN PROGRESS (2026-07-21)
+**Status:** V2 (2026-07-21) — phone-test feedback round 1 applied: **three strings**
+(fifths: root, +7, +14) with the **bassiest string rightmost**; auto-vibrato now
+**defaults to 0** (vibrato belongs to the player's finger; knob opts back in); osc
+detune halved to ±2¢ (the old ±4¢ beat audibly on held notes); and held notes
+**settle into tune** on stillness (full settle from intonation ≥ 0.5, gated off at 0
+— fretless stays fretless; held bends sustain). V1 shipped 2026-07-21.
 **Created:** 2026-07-21
 **Goal:** a mobile-first input module: two violin-inspired strings played by sliding a
 finger along them — continuous pitch, gentle vibrato, vocal timbre. Not strummed, not
