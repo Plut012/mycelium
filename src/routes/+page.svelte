@@ -562,6 +562,29 @@
       ],
     },
     {
+      // Two Duets (bass E2/B2, violin lead D4/A4) summing into the Tin's warm
+      // back half. The gesture: bow a bass drone → Freeze it → solo on top.
+      name: 'Chamber',
+      description: 'Duet ×2 (bass + violin lead) → X-Factor → Freeze ×2 → Halo → Output — bow a drone, freeze it, solo over your own bed',
+      modules: [
+        { type: 'duet', key: 'duet-bass', position: { x: 0, y: 0 }, params: { root: 4, octave: 2, intonation: 0.6, vibrato: 0.35, level: 0.85 } },
+        { type: 'duet', key: 'duet-lead', position: { x: 4, y: 0 }, params: { root: 2, octave: 4, intonation: 0.5, vibrato: 0.5, level: 0.75 } },
+        { type: 'x-factor', position: { x: 8, y: 0 }, params: { x: 0.45 } },
+        { type: 'freeze', key: 'freeze1', position: { x: 11, y: 0 }, params: { freeze: 0, bed_level: 0.7 } },
+        { type: 'freeze', key: 'freeze2', position: { x: 13, y: 0 }, params: { freeze: 0, bed_level: 0.7 } },
+        { type: 'halo', position: { x: 15, y: 0 }, params: { decay: 8, mix: 0.45, damping: 0.55, shimmer: 0, shimmer_amount: 0.4 } },
+        { type: 'output', position: { x: 18, y: 0 }, params: { volume: 0.4 } },
+      ],
+      connections: [
+        { from: { type: 'duet-bass', port: 'audio_out' }, to: { type: 'x-factor', port: 'audio_in' } },
+        { from: { type: 'duet-lead', port: 'audio_out' }, to: { type: 'x-factor', port: 'audio_in' } },
+        { from: { type: 'x-factor', port: 'audio_out' }, to: { type: 'freeze1', port: 'audio_in' } },
+        { from: { type: 'freeze1', port: 'audio_out' }, to: { type: 'freeze2', port: 'audio_in' } },
+        { from: { type: 'freeze2', port: 'audio_out' }, to: { type: 'halo', port: 'audio_in' } },
+        { from: { type: 'halo', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
+      ],
+    },
+    {
       name: 'Tape Lounge',
       description: 'Tape → Filter → Delay → Reverb → Output — warm vinyl lounge with slow filter drift',
       modules: [
