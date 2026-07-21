@@ -218,27 +218,29 @@
     <Knob value={level} min={0} max={1} label="LEVEL" onChange={(v) => { level = v; setParam('level', v); }} />
   </div>
 
-  <select
-    class="scale-select"
-    title="Scale — assist and settle pull toward these tones"
-    onchange={(e) => { scale = (e.target as HTMLSelectElement).value; engine.setParameter('scale', scale); }}
-  >
-    {#each SCALE_NAMES as name}
-      <option value={name} selected={scale === name}>{name}</option>
-    {/each}
-  </select>
+  <div class="mid-row">
+    <select
+      class="scale-select"
+      title="Scale — assist and settle pull toward these tones"
+      onchange={(e) => { scale = (e.target as HTMLSelectElement).value; engine.setParameter('scale', scale); }}
+    >
+      {#each SCALE_NAMES as name}
+        <option value={name} selected={scale === name}>{name}</option>
+      {/each}
+    </select>
 
-  <!-- Mini preview: three strings, bass rightmost, live finger dots -->
-  <svg class="preview" viewBox="0 0 80 34">
-    {#each STRINGS as i}
-      {@const x = 64 - i * 24}
-      <line x1={x} y1="2" x2={x} y2="26" class="preview-string" class:sounding={states[i].active} />
-      {#if states[i].active}
-        <circle cx={x} cy={2 + (1 - states[i].pos) * 24} r="3" class="preview-dot" />
-      {/if}
-      <text {x} y="33" text-anchor="middle" class="preview-label">{openStrings[i]}</text>
-    {/each}
-  </svg>
+    <!-- Mini preview: three strings, bass rightmost, live finger dots -->
+    <svg class="preview" viewBox="0 0 80 34">
+      {#each STRINGS as i}
+        {@const x = 64 - i * 24}
+        <line x1={x} y1="2" x2={x} y2="26" class="preview-string" class:sounding={states[i].active} />
+        {#if states[i].active}
+          <circle cx={x} cy={2 + (1 - states[i].pos) * 24} r="3" class="preview-dot" />
+        {/if}
+        <text {x} y="33" text-anchor="middle" class="preview-label">{openStrings[i]}</text>
+      {/each}
+    </svg>
+  </div>
 
   <div class="bottom-bar">
     <button class="play-btn" onclick={openFullscreen} title="Open fullscreen strings">PLAY</button>
@@ -446,17 +448,25 @@
     opacity: 1;
   }
 
+  .mid-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+  }
+
   .scale-select {
     font-family: var(--label-font, 'Courier New', monospace);
-    font-size: 9px;
+    font-size: 8px;
     color: var(--label-color, #a89880);
     background: rgba(20, 16, 14, 0.7);
     border: 1px solid var(--port-stroke, #5a4a3a);
     border-radius: var(--control-radius, 2px);
-    padding: 2px 4px;
-    width: 90%;
+    padding: 2px 3px;
+    flex: 1;
+    min-width: 0;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
   }
 
   .fs-string {
