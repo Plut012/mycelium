@@ -14,6 +14,13 @@ export const duetManifest: ModuleManifest = {
   ],
   parameters: [
     {
+      id: 'scale',
+      name: 'Scale',
+      type: 'select',
+      steps: ['Chromatic', 'Hijaz', 'Bayati', 'Rast', 'Phrygian Dom.', 'Phrygian', 'Harm. Minor'],
+      default: 'Chromatic',
+    },
+    {
       id: 'root',
       name: 'Root',
       type: 'stepped',

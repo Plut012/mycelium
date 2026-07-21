@@ -1,6 +1,15 @@
 # Duet — Two-String Touchscreen Vocal Instrument
 
-**Status:** V2 (2026-07-21) — phone-test feedback round 1 applied: **three strings**
+**Status:** V3 (2026-07-21) — scale-aware intonation: a Scale selector (Chromatic,
+Hijaz, Bayati, Rast, Phrygian Dom., Phrygian, Harm. Minor) where scales are
+cent-tables anchored to the root, so maqam quarter-tones are first-class — assist and
+settle pull toward scale tones (verified: a held Bayati 2nd settles to exactly −50
+cents). Hijaz uses traditional narrowed-augmented-2nd intonation (125/375), distinct
+from 12-TET Phrygian Dominant. Fullscreen gains per-string scale beads: tonic diamonds
+always visible, dominant diamonds and degree beads lantern-revealed near the finger,
+quarter-tone degrees drawn as half-lit diamonds; Chromatic renders no beads. Gap
+inlays (octave pair + alternating fifths) unchanged.
+**V2 (2026-07-21) — phone-test feedback round 1 applied: **three strings**
 (fifths: root, +7, +14) with the **bassiest string rightmost**; auto-vibrato now
 **defaults to 0** (vibrato belongs to the player's finger; knob opts back in); osc
 detune halved to ±2¢ (the old ±4¢ beat audibly on held notes); and held notes

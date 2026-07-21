@@ -2,6 +2,7 @@
   import { Knob, ModulePanel, PortJack } from '$lib/ui';
   import { NOTE_NAMES } from '$lib/modules/keyboard/music.js';
   import type { DuetEngine } from './engine.js';
+  import { SCALE_NAMES } from './engine.js';
 
   type Props = {
     engine: DuetEngine;
@@ -12,6 +13,7 @@
 
   let { engine, connectedPorts = new Set(), onPortConnect, moduleId }: Props = $props();
 
+  let scale = $state('Chromatic');
   let root = $state(2);
   let octave = $state(3);
   let intonation = $state(0.5);
@@ -32,10 +34,14 @@
   );
   let openStrings = $state<string[]>(['D3', 'A3', 'E4']);
 
+  type ScaleMark = { string: number; pos: number; weight: number; quarter: boolean };
+  let scaleMarks = $state<ScaleMark[]>([]);
+
   let animFrame = 0;
   function poll() {
     states = engine.getStringStates();
     openStrings = engine.getOpenStrings();
+    scaleMarks = engine.getScaleMarks();
     animFrame = requestAnimationFrame(poll);
   }
 
@@ -212,6 +218,16 @@
     <Knob value={level} min={0} max={1} label="LEVEL" onChange={(v) => { level = v; setParam('level', v); }} />
   </div>
 
+  <select
+    class="scale-select"
+    title="Scale — assist and settle pull toward these tones"
+    onchange={(e) => { scale = (e.target as HTMLSelectElement).value; engine.setParameter('scale', scale); }}
+  >
+    {#each SCALE_NAMES as name}
+      <option value={name} selected={scale === name}>{name}</option>
+    {/each}
+  </select>
+
   <!-- Mini preview: three strings, bass rightmost, live finger dots -->
   <svg class="preview" viewBox="0 0 80 34">
     {#each STRINGS as i}
@@ -262,6 +278,23 @@
           class:near={inlay.near}
           style:animation-delay="{inlay.row * -1.7}s"
         />
+      {/each}
+
+      <!-- Scale-tone beads on each string: tonic always shown, the rest
+           lantern-revealed around the finger. Quarter-tone degrees are
+           half-lit diamonds — notes that live between the semitones. -->
+      {#each scaleMarks as mark}
+        {@const mx = stringX(mark.string)}
+        {@const my = (1 - mark.pos) * surfaceH}
+        {@const lit = mark.weight === 3 || fingers.some((f) => f && Math.abs(f.y - my) < 130)}
+        {#if mark.quarter}
+          <path d={diamondPath(mx, my, mark.weight === 2 ? 4.5 : 3.5)} class="scale-mark outline" class:lit />
+          <path d={`M ${mx} ${my - (mark.weight === 2 ? 4.5 : 3.5)} L ${mx} ${my + (mark.weight === 2 ? 4.5 : 3.5)} L ${mx - (mark.weight === 2 ? 4.5 : 3.5) * 0.7} ${my} Z`} class="scale-mark half" class:lit />
+        {:else if mark.weight >= 2}
+          <path d={diamondPath(mx, my, mark.weight === 3 ? 5 : 3.5)} class="scale-mark" class:lit />
+        {:else}
+          <circle cx={mx} cy={my} r="2" class="scale-mark" class:lit />
+        {/if}
       {/each}
       {#each STRINGS as i}
         <path d={stringPath(i)} class="fs-string" class:sounding={states[i].active} />
@@ -390,6 +423,40 @@
   @keyframes inlay-breathe {
     from { opacity: 0.55; }
     to { opacity: 1; }
+  }
+
+  /* Scale beads: invisible until the lantern reveal brings them up */
+  .scale-mark {
+    fill: color-mix(in srgb, var(--knob-indicator, #7fba5c) 30%, transparent);
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+
+  .scale-mark.outline {
+    fill: none;
+    stroke: color-mix(in srgb, var(--knob-indicator, #7fba5c) 45%, transparent);
+    stroke-width: 1;
+  }
+
+  .scale-mark.half {
+    fill: color-mix(in srgb, var(--knob-indicator, #7fba5c) 55%, transparent);
+  }
+
+  .scale-mark.lit {
+    opacity: 1;
+  }
+
+  .scale-select {
+    font-family: var(--label-font, 'Courier New', monospace);
+    font-size: 9px;
+    color: var(--label-color, #a89880);
+    background: rgba(20, 16, 14, 0.7);
+    border: 1px solid var(--port-stroke, #5a4a3a);
+    border-radius: var(--control-radius, 2px);
+    padding: 2px 4px;
+    width: 90%;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   .fs-string {

@@ -28,6 +28,25 @@ const STILL_MS = 350;             // stillness before auto-vibrato fades in
 const MOVE_EPSILON = 0.02;        // semitones — smaller motion counts as "still"
 const RAMP = 0.015;               // s — pitch ramp time constant
 
+/**
+ * Scales as cent-positions within the octave, anchored to the root — which is
+ * what lets maqam quarter-tones (and Hijaz's traditionally narrowed augmented
+ * second) be first-class: the assist and settle pull toward THESE positions,
+ * not toward 12-TET semitones. Chromatic reproduces the original behavior.
+ */
+export const SCALES: Record<string, number[]> = {
+  'Chromatic':     [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
+  // Traditional Hijaz intonation: 2nd raised, 3rd lowered — the aug-2nd narrows
+  'Hijaz':         [0, 125, 375, 500, 700, 800, 1000],
+  'Bayati':        [0, 150, 300, 500, 700, 800, 1000],
+  'Rast':          [0, 200, 350, 500, 700, 900, 1050],
+  'Phrygian Dom.': [0, 100, 400, 500, 700, 800, 1000],
+  'Phrygian':      [0, 100, 300, 500, 700, 800, 1000],
+  'Harm. Minor':   [0, 200, 300, 500, 700, 800, 1100],
+};
+
+export const SCALE_NAMES = Object.keys(SCALES);
+
 // Formant tables: frequency (Hz), gain, Q per band
 const VOWEL_OOH = { freqs: [350, 800, 2400], gains: [1.0, 0.3, 0.08] };
 const VOWEL_AHH = { freqs: [650, 1080, 2650], gains: [1.0, 0.5, 0.15] };
@@ -64,6 +83,8 @@ export class DuetEngine extends ModuleEngine {
   private intonation = 0.5;
   private vibratoAmt = 0; // vibrato is the player's — auto-vibrato is opt-in
   private level = 0.8;
+  private scaleCents: number[] = SCALES['Chromatic'];
+  private scaleName = 'Chromatic';
 
   create(ctx: AudioContext): void {
     this.ctx = ctx;
@@ -149,6 +170,22 @@ export class DuetEngine extends ModuleEngine {
     };
   }
 
+  /** Nearest scale tone (in semitone units) to a raw position above the root. */
+  private nearestScaleSemis(raw: number): number {
+    const cents = raw * 100;
+    const base = Math.floor(cents / 1200) * 1200;
+    let best = 0;
+    let bestD = Infinity;
+    for (const octShift of [-1200, 0, 1200]) {
+      for (const c of this.scaleCents) {
+        const cand = base + octShift + c;
+        const d = Math.abs(cand - cents);
+        if (d < bestD) { bestD = d; best = cand; }
+      }
+    }
+    return best / 100;
+  }
+
   /**
    * Ease a held note into tune (held bends sustain). Full settle from
    * knob ≥ 0.5 so the default gives solid sustains; below that it's partial,
@@ -156,7 +193,7 @@ export class DuetEngine extends ModuleEngine {
    */
   private settle(s: StringVoice, now: number): void {
     const raw = s.lastSemis;
-    const nearest = Math.round(raw);
+    const nearest = this.nearestScaleSemis(raw);
     const strength = Math.min(1, this.intonation * 2);
     const semis = raw + (nearest - raw) * strength + s.lastBend * BEND_SEMITONES;
     const midi = 12 * (this.octave + 1) + this.root + semis;
@@ -226,7 +263,7 @@ export class DuetEngine extends ModuleEngine {
     const assist = isAttack
       ? this.intonation
       : this.intonation * Math.max(0, 1 - speed / 0.02);
-    const nearest = Math.round(raw);
+    const nearest = this.nearestScaleSemis(raw);
     const assisted = raw + (nearest - raw) * assist;
 
     // Sideways drift: gentle bend up (direction-agnostic, like a real bend)
@@ -286,9 +323,47 @@ export class DuetEngine extends ModuleEngine {
 
   // ── Parameters ───────────────────────────────────────────────────────────
 
+  /**
+   * Scale-tone marks per string, for the fullscreen bead rendering.
+   * Empty for Chromatic — 12 beads per octave per string would be the grid
+   * this module refuses to become.
+   */
+  getScaleMarks(): { string: number; pos: number; weight: number; quarter: boolean }[] {
+    if (this.scaleName === 'Chromatic') return [];
+    const marks: { string: number; pos: number; weight: number; quarter: boolean }[] = [];
+    for (let i = 0; i < STRING_COUNT; i++) {
+      const openCents = i * STRING_INTERVAL * 100;
+      for (let oct = 0; oct <= 3; oct++) {
+        for (const c of this.scaleCents) {
+          const abs = oct * 1200 + c;
+          const pos = (abs - openCents) / (PITCH_RANGE_SEMITONES * 100);
+          if (pos < 0 || pos > 1) continue;
+          const degree = ((abs % 1200) + 1200) % 1200;
+          marks.push({
+            string: i,
+            pos,
+            weight: degree === 0 ? 3 : degree === 700 ? 2 : 1,
+            quarter: degree % 100 !== 0,
+          });
+        }
+      }
+    }
+    return marks;
+  }
+
+  getScaleName(): string {
+    return this.scaleName;
+  }
+
   setParameter(name: string, value: number | string): void {
     const num = value as number;
     switch (name) {
+      case 'scale':
+        if (typeof value === 'string' && value in SCALES) {
+          this.scaleName = value;
+          this.scaleCents = SCALES[value];
+        }
+        return;
       case 'root': this.root = Math.round(num); break;
       case 'octave': this.octave = Math.round(num); break;
       case 'intonation': this.intonation = num; break;
