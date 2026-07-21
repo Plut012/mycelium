@@ -477,7 +477,10 @@
   interface Preset {
     name: string;
     description: string;
-    modules: { type: string; position: { x: number; y: number }; params?: Record<string, number | string>; instrument?: string }[];
+    // `key` aliases a module instance when a preset uses the same type more
+    // than once (e.g. The Tin's three Freezes); connections reference it via
+    // their `type` field. Defaults to `type`.
+    modules: { type: string; key?: string; position: { x: number; y: number }; params?: Record<string, number | string>; instrument?: string }[];
     connections: { from: { type: string; port: string }; to: { type: string; port: string } }[];
   }
 
@@ -528,6 +531,36 @@
   };
 
   const presets: Preset[] = [
+    {
+      // Layout echoes the hardware panel: setup rotaries left, performance
+      // knobs center, freeze layering station right column, keys lower half
+      name: 'The Tin',
+      description: 'The Tin pocket synth — Keys → Compass → Bloom → Tin Voice → X-Factor → Freeze ×3 → Halo → Output, drift cable patched',
+      modules: [
+        { type: 'compass', position: { x: 0, y: 0 }, params: { root: 'C', mode: 'Ionian', octave: 4 } },
+        { type: 'tin-voice', position: { x: 4, y: 0 }, params: { voice: 'sine-pad', sub: 0, level: 0.8 } },
+        { type: 'x-factor', position: { x: 8, y: 0 }, params: { x: 0.35 } },
+        { type: 'bloom', position: { x: 11, y: 0 }, params: { time: 0 } },
+        { type: 'tin-keys', position: { x: 4, y: 6 } },
+        { type: 'freeze', key: 'freeze1', position: { x: 15, y: 0 }, params: { freeze: 0, bed_level: 0.7 } },
+        { type: 'freeze', key: 'freeze2', position: { x: 15, y: 4 }, params: { freeze: 0, bed_level: 0.7 } },
+        { type: 'freeze', key: 'freeze3', position: { x: 15, y: 8 }, params: { freeze: 0, bed_level: 0.7 } },
+        { type: 'halo', position: { x: 18, y: 0 }, params: { decay: 6, mix: 0.5, damping: 0.4, shimmer: 0, shimmer_amount: 0.5 } },
+        { type: 'output', position: { x: 21, y: 0 }, params: { volume: 0.4 } },
+      ],
+      connections: [
+        { from: { type: 'tin-keys', port: 'degree_out' }, to: { type: 'compass', port: 'degree_in' } },
+        { from: { type: 'compass', port: 'note_out' }, to: { type: 'bloom', port: 'note_in' } },
+        { from: { type: 'bloom', port: 'note_out' }, to: { type: 'tin-voice', port: 'note_in' } },
+        { from: { type: 'x-factor', port: 'drift_out' }, to: { type: 'tin-voice', port: 'drift_in' } },
+        { from: { type: 'tin-voice', port: 'audio_out' }, to: { type: 'x-factor', port: 'audio_in' } },
+        { from: { type: 'x-factor', port: 'audio_out' }, to: { type: 'freeze1', port: 'audio_in' } },
+        { from: { type: 'freeze1', port: 'audio_out' }, to: { type: 'freeze2', port: 'audio_in' } },
+        { from: { type: 'freeze2', port: 'audio_out' }, to: { type: 'freeze3', port: 'audio_in' } },
+        { from: { type: 'freeze3', port: 'audio_out' }, to: { type: 'halo', port: 'audio_in' } },
+        { from: { type: 'halo', port: 'audio_out' }, to: { type: 'output', port: 'audio_in' } },
+      ],
+    },
     {
       name: 'Tape Lounge',
       description: 'Tape → Filter → Delay → Reverb → Output — warm vinyl lounge with slow filter drift',
@@ -774,14 +807,14 @@
       removeModule(m.id);
     }
 
-    // Add modules and track instance ids by type
+    // Add modules and track instance ids by key (alias) or type
     const instanceByType = new Map<string, string>();
     const instrumentLoads: Promise<void>[] = [];
 
     for (const mod of preset.modules) {
       const instance = addModule(mod.type, mod.position);
       if (instance) {
-        instanceByType.set(mod.type, instance.id);
+        instanceByType.set(mod.key ?? mod.type, instance.id);
         if (mod.params) {
           for (const [k, v] of Object.entries(mod.params)) {
             instance.engine.setParameter(k, v);

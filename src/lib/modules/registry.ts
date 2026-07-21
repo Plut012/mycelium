@@ -127,6 +127,41 @@ import { tapeManifest } from './tape/manifest.js';
 import { TapeEngine } from './tape/engine.js';
 import TapeModule from './tape/Module.svelte';
 
+// ── Tin: Tin Keys ─────────────────────────────────────────────────────────────
+import { tinKeysManifest } from './tin-keys/manifest.js';
+import { TinKeysEngine } from './tin-keys/engine.js';
+import TinKeysModule from './tin-keys/Module.svelte';
+
+// ── Tin: Compass ──────────────────────────────────────────────────────────────
+import { compassManifest } from './compass/manifest.js';
+import { CompassEngine } from './compass/engine.js';
+import CompassModule from './compass/Module.svelte';
+
+// ── Tin: Tin Voice ────────────────────────────────────────────────────────────
+import { tinVoiceManifest } from './tin-voice/manifest.js';
+import { TinVoiceEngine } from './tin-voice/engine.js';
+import TinVoiceModule from './tin-voice/Module.svelte';
+
+// ── Tin: Bloom ────────────────────────────────────────────────────────────────
+import { bloomManifest } from './bloom/manifest.js';
+import { BloomEngine } from './bloom/engine.js';
+import BloomModule from './bloom/Module.svelte';
+
+// ── Tin: X-Factor ─────────────────────────────────────────────────────────────
+import { xFactorManifest } from './x-factor/manifest.js';
+import { XFactorEngine } from './x-factor/engine.js';
+import XFactorModule from './x-factor/Module.svelte';
+
+// ── Tin: Freeze ───────────────────────────────────────────────────────────────
+import { freezeManifest } from './freeze/manifest.js';
+import { FreezeEngine } from './freeze/engine.js';
+import FreezeModule from './freeze/Module.svelte';
+
+// ── Tin: Halo ─────────────────────────────────────────────────────────────────
+import { haloManifest } from './halo/manifest.js';
+import { HaloEngine } from './halo/engine.js';
+import HaloModule from './halo/Module.svelte';
+
 // ── Registry entry type ───────────────────────────────────────────────────────
 
 export interface RegistryEntry {
@@ -339,6 +374,62 @@ export const moduleRegistry = new Map<string, RegistryEntry>([
       manifest: tapeManifest,
       createEngine: () => new TapeEngine(),
       component: TapeModule,
+    },
+  ],
+  [
+    'tin-keys',
+    {
+      manifest: tinKeysManifest,
+      createEngine: () => new TinKeysEngine(),
+      component: TinKeysModule,
+    },
+  ],
+  [
+    'compass',
+    {
+      manifest: compassManifest,
+      createEngine: () => new CompassEngine(),
+      component: CompassModule,
+    },
+  ],
+  [
+    'tin-voice',
+    {
+      manifest: tinVoiceManifest,
+      createEngine: () => new TinVoiceEngine(),
+      component: TinVoiceModule,
+    },
+  ],
+  [
+    'bloom',
+    {
+      manifest: bloomManifest,
+      createEngine: () => new BloomEngine(),
+      component: BloomModule,
+    },
+  ],
+  [
+    'x-factor',
+    {
+      manifest: xFactorManifest,
+      createEngine: () => new XFactorEngine(),
+      component: XFactorModule,
+    },
+  ],
+  [
+    'freeze',
+    {
+      manifest: freezeManifest,
+      createEngine: () => new FreezeEngine(),
+      component: FreezeModule,
+    },
+  ],
+  [
+    'halo',
+    {
+      manifest: haloManifest,
+      createEngine: () => new HaloEngine(),
+      component: HaloModule,
     },
   ],
 ]);
