@@ -162,6 +162,11 @@ import { haloManifest } from './halo/manifest.js';
 import { HaloEngine } from './halo/engine.js';
 import HaloModule from './halo/Module.svelte';
 
+// ── Duet ──────────────────────────────────────────────────────────────────────
+import { duetManifest } from './duet/manifest.js';
+import { DuetEngine } from './duet/engine.js';
+import DuetModule from './duet/Module.svelte';
+
 // ── Registry entry type ───────────────────────────────────────────────────────
 
 export interface RegistryEntry {
@@ -430,6 +435,14 @@ export const moduleRegistry = new Map<string, RegistryEntry>([
       manifest: haloManifest,
       createEngine: () => new HaloEngine(),
       component: HaloModule,
+    },
+  ],
+  [
+    'duet',
+    {
+      manifest: duetManifest,
+      createEngine: () => new DuetEngine(),
+      component: DuetModule,
     },
   ],
 ]);
