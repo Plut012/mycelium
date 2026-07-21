@@ -157,6 +157,36 @@
     };
   });
 
+  // ── Fingerboard inlays ────────────────────────────────────────────────────
+  // Diamonds inlaid in the surface between the strings (strings draw over
+  // them). Interval heights are identical on every string, so the marks
+  // belong to the fingerboard — like fret inlays. Octave = double diamond
+  // (both gaps); fifths = single smaller diamond, alternating gaps so
+  // nothing reads as a row.
+
+  const gapX = (g: number) => (stringX(g) + stringX(g + 1)) / 2; // g: 0=right gap, 1=left gap
+  const inlayY = (semis: number) => (1 - semis / 24) * surfaceH;
+
+  // [semitones, gap or 'both', half-diagonal px]
+  const INLAYS: [number, 0 | 1 | 'both', number][] = [
+    [7, 0, 5],
+    [12, 'both', 7],
+    [19, 1, 5],
+  ];
+
+  let inlays = $derived(
+    INLAYS.flatMap(([semis, gap, r], row) => {
+      const y = inlayY(semis);
+      const near = fingers.some((f) => f && Math.abs(f.y - y) < 48);
+      const gaps = gap === 'both' ? [0, 1] : [gap];
+      return gaps.map((g) => ({ x: gapX(g), y, r, near, row }));
+    })
+  );
+
+  function diamondPath(x: number, y: number, r: number): string {
+    return `M ${x} ${y - r} L ${x + r * 0.7} ${y} L ${x} ${y + r} L ${x - r * 0.7} ${y} Z`;
+  }
+
   /** String path — bows toward the finger while played */
   function stringPath(i: number): string {
     const sx = stringX(i);
@@ -224,6 +254,15 @@
     onpointercancel={onPointerUp}
   >
     <svg class="fs-strings" width={surfaceW} height={surfaceH}>
+      <!-- Inlays first: the strings pass over them -->
+      {#each inlays as inlay}
+        <path
+          d={diamondPath(inlay.x, inlay.y, inlay.r)}
+          class="fs-inlay"
+          class:near={inlay.near}
+          style:animation-delay="{inlay.row * -1.7}s"
+        />
+      {/each}
       {#each STRINGS as i}
         <path d={stringPath(i)} class="fs-string" class:sounding={states[i].active} />
         {#if fingers[i]}
@@ -331,6 +370,26 @@
     display: block;
     width: 100%;
     height: 100%;
+  }
+
+  /* Inlaid mother-of-pearl: near-invisible fill, a thin edge catching light,
+     breathing slowly. Blooms when a finger's height comes near. */
+  .fs-inlay {
+    fill: color-mix(in srgb, var(--knob-indicator, #7fba5c) 7%, transparent);
+    stroke: color-mix(in srgb, var(--knob-indicator, #7fba5c) 30%, transparent);
+    stroke-width: 1;
+    animation: inlay-breathe 5.2s ease-in-out infinite alternate;
+    transition: fill 0.4s, stroke 0.4s;
+  }
+
+  .fs-inlay.near {
+    fill: color-mix(in srgb, var(--knob-indicator, #7fba5c) 20%, transparent);
+    stroke: color-mix(in srgb, var(--knob-indicator, #7fba5c) 55%, transparent);
+  }
+
+  @keyframes inlay-breathe {
+    from { opacity: 0.55; }
+    to { opacity: 1; }
   }
 
   .fs-string {
