@@ -1,6 +1,22 @@
 # Duet — Two-String Touchscreen Vocal Instrument
 
-**Status:** V3 (2026-07-21) — scale-aware intonation: a Scale selector (Chromatic,
+**Status:** V3 SHIPPED, IN PLAY-AND-FEEDBACK (2026-07-22) — phone verdict so far:
+*feeling pretty good*; keep playing before more changes. Panel overflow fixed
+2026-07-22 (scale dropdown became a slim bar beside the preview after it pushed
+PLAY/OUT out of the clipped panel body).
+
+**Parked / candidate next steps** (in rough order of pull):
+- **Fingerboard wear** — faint accumulating smudges where you actually play, fading
+  over minutes; optionally persisted to localStorage so the instrument ages with its
+  player. Concept agreed 2026-07-21, persistence question never answered.
+- **Deeper bass floor** — Chamber's bass Duet bottoms at E2; true double-bass range
+  needs octave min 1 plus a lowpass "body" path under the formant stack (low
+  fundamentals starve through the 350 Hz band).
+- **Per-string CV/gate outs** — would let the strings drive other voices; cheap.
+- **Feel tuning knobs to watch during play**: quarter-tone assist strength (guided vs
+  magnetic), lantern radius (~130 px), bead sizes at phone scale, ±2¢ detune warmth.
+
+**V3 (2026-07-21) — scale-aware intonation: a Scale selector (Chromatic,
 Hijaz, Bayati, Rast, Phrygian Dom., Phrygian, Harm. Minor) where scales are
 cent-tables anchored to the root, so maqam quarter-tones are first-class — assist and
 settle pull toward scale tones (verified: a held Bayati 2nd settles to exactly −50
